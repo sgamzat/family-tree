@@ -1,20 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { EditPersonSheet } from "@/components/edit-person-sheet";
 import {
   formatFio,
   personYears,
+  type ClanDTO,
   type ClanResolution,
   type PersonDTO,
 } from "@/lib/names";
+import type { DoubledAncestor } from "@/lib/kinship";
 
 export function PersonHeading({
   person,
   clan,
+  foundedClans,
+  doubledAncestors,
 }: {
   person: PersonDTO;
   clan: ClanResolution;
+  foundedClans: ClanDTO[];
+  doubledAncestors: DoubledAncestor[];
 }) {
   const [editing, setEditing] = useState(false);
   const years = personYears(person);
@@ -65,8 +72,27 @@ export function PersonHeading({
       {person.sourceNote ? (
         <p className="text-sm text-[var(--muted)]">Источник: {person.sourceNote}</p>
       ) : null}
+      {doubledAncestors.length > 0 ? (
+        <p className="rounded-xl bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--accent)]">
+          В родословной предок входит несколькими путями:{" "}
+          {doubledAncestors.map((item, index) => (
+            <span key={item.person.id}>
+              {index > 0 ? ", " : ""}
+              <Link href={`/people/${item.person.id}`} className="font-medium underline">
+                {formatFio(item.person)}
+              </Link>
+              {` ×${item.pathCount}`}
+            </span>
+          ))}
+          .
+        </p>
+      ) : null}
       {editing ? (
-        <EditPersonSheet person={person} onClose={() => setEditing(false)} />
+        <EditPersonSheet
+          person={person}
+          foundedClans={foundedClans}
+          onClose={() => setEditing(false)}
+        />
       ) : null}
     </div>
   );

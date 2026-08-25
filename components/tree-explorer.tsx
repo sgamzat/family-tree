@@ -68,9 +68,11 @@ function DepthChips({
 export function TreeExplorer({
   graph,
   personId,
+  doubledById,
 }: {
   graph: KinGraph;
   personId: string;
+  doubledById?: Record<string, number>;
 }) {
   const upMax = maxUp(graph, personId);
   const downMax = maxDown(graph, personId);
@@ -171,11 +173,18 @@ export function TreeExplorer({
         </div>
       )}
 
-      {mode === "line" && lineTree ? <LineageTree tree={lineTree} /> : null}
-      {mode === "clan" && clanTree ? <ClanTreeView tree={clanTree} /> : null}
+      {mode === "line" && lineTree ? (
+        <LineageTree tree={lineTree} doubledById={doubledById} />
+      ) : null}
+      {mode === "clan" && clanTree ? (
+        <ClanTreeView tree={clanTree} doubledById={doubledById} />
+      ) : null}
 
       <p className="text-xs text-[var(--muted)]">
         Стрелка вниз — к детям. Выделен тот, кого вы открыли.
+        {doubledById && Object.keys(doubledById).length > 0
+          ? " Значок ×N — предок входит в родословную несколькими путями."
+          : ""}
       </p>
     </section>
   );

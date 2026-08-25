@@ -96,6 +96,8 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
     patronymic: form.patronymic,
     gender: genderFilter,
     excludeIds,
+    nearId: personId,
+    role,
   });
 
   async function linkExisting(existingPersonId: string) {
@@ -116,6 +118,12 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
   }
 
   async function createAndLink() {
+    if (hits.length > 0) {
+      const ok = window.confirm(
+        "Похожие люди уже есть в дереве. Точно создать нового, а не нажать «Это он»?",
+      );
+      if (!ok) return;
+    }
     setSaving(true);
     setError("");
     try {

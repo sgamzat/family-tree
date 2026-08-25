@@ -3,6 +3,7 @@ import { parseGender, parsePersonInput } from "@/lib/names";
 import {
   createPerson,
   listRecentPeople,
+  parseRelationRole,
   searchPeople,
 } from "@/lib/people";
 
@@ -18,6 +19,8 @@ export async function GET(request: Request) {
     const genderParam = searchParams.get("gender");
     const exclude = searchParams.getAll("exclude");
     const recent = searchParams.get("recent") === "1";
+    const nearId = searchParams.get("near") ?? "";
+    const roleParam = searchParams.get("role") ?? "";
 
     if (recent && !query && !lastName && !firstName && !patronymic) {
       const people = await listRecentPeople();
@@ -32,6 +35,8 @@ export async function GET(request: Request) {
       patronymic,
       gender,
       excludeIds: exclude.filter(Boolean),
+      nearId: nearId || undefined,
+      role: roleParam ? parseRelationRole(roleParam) : undefined,
     });
     return Response.json({ people });
   } catch (error) {

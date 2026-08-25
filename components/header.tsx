@@ -9,6 +9,7 @@ export function Header() {
         </Link>
         <nav className="flex items-center gap-3 text-sm font-medium text-[var(--accent)]">
           <Link href="/kinship">Родство</Link>
+          <Link href="/duplicates">Дубли</Link>
           <Link href="/people/new">Добавить</Link>
         </nav>
       </div>

@@ -31,6 +31,9 @@ export type PersonDTO = {
 
 export type SearchHit = PersonDTO & {
   fatherLabel: string | null;
+  clanName: string | null;
+  childrenLabel: string | null;
+  sameClan: boolean;
 };
 
 export type FamilyDTO = {
@@ -41,6 +44,7 @@ export type FamilyDTO = {
   children: PersonDTO[];
   siblings: PersonDTO[];
   clan: ClanResolution;
+  foundedClans: ClanDTO[];
 };
 
 export type PersonInput = {
@@ -73,6 +77,36 @@ export function nameTokens(...parts: Array<string | undefined>): string[] {
     }
   }
   return tokens;
+}
+
+const NAME_VARIANT_GROUPS: string[][] = [
+  ["магомед", "магомет", "мухаммад", "мухамед", "магома"],
+  ["ахмед", "ахмад", "ахмат"],
+  ["ибрагим", "ибрахим"],
+  ["гаджи", "хаджи", "хажи"],
+  ["патимат", "фатимат", "фатима", "патима"],
+  ["аминат", "амина"],
+  ["мариам", "марьям", "мариям"],
+  ["абдулла", "абдуллах", "абдула"],
+  ["юсуп", "юсуф"],
+  ["хадижат", "хадижа"],
+  ["хусейн", "гусейн", "хусей"],
+  ["омар", "умар"],
+  ["рамазан", "рамадан"],
+  ["зайнаб", "зейнаб"],
+  ["али"],
+];
+
+export function nameVariants(token: string): string[] {
+  const key = normalizeName(token);
+  for (const group of NAME_VARIANT_GROUPS) {
+    if (group.includes(key)) return group;
+  }
+  return [key];
+}
+
+export function nameFamily(token: string): string {
+  return nameVariants(token)[0] ?? normalizeName(token);
 }
 
 export function formatFio(person: {
@@ -114,6 +148,14 @@ export function personYears(person: {
     person.birthDateText ?? "",
     person.deathDateText ?? "",
   );
+}
+
+export function searchHitCaption(hit: SearchHit): string {
+  const clan = hit.clanName ? `тухум ${hit.clanName}` : "";
+  const children = hit.childrenLabel ? `дети: ${hit.childrenLabel}` : "";
+  return [personYears(hit), hit.fatherLabel, clan, children]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function fatherLabel(

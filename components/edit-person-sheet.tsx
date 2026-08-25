@@ -5,15 +5,16 @@ import { useState } from "react";
 import { PersonExtras } from "@/components/person-extras";
 import { PersonFields, personToForm } from "@/components/person-fields";
 import { api } from "@/lib/api";
-import { parsePersonInput, type FamilyDTO, type PersonDTO } from "@/lib/names";
+import { parsePersonInput, formatFio, type ClanDTO, type FamilyDTO, type PersonDTO } from "@/lib/names";
 import { useClans } from "@/lib/use-clans";
 
 type Props = {
   person: PersonDTO;
+  foundedClans: ClanDTO[];
   onClose: () => void;
 };
 
-export function EditPersonSheet({ person, onClose }: Props) {
+export function EditPersonSheet({ person, foundedClans, onClose }: Props) {
   const router = useRouter();
   const { clans, addClan } = useClans();
   const [form, setForm] = useState(() => personToForm(person));
@@ -38,11 +39,17 @@ export function EditPersonSheet({ person, onClose }: Props) {
   }
 
   async function remove() {
-    const name = [person.lastName, person.firstName, person.patronymic]
-      .filter(Boolean)
-      .join(" ");
+    const name = formatFio(person) || "этого человека";
+    const founderNote =
+      foundedClans.length === 0
+        ? ""
+        : foundedClans.length === 1
+          ? `\n\nЭтот человек — родоначальник рода «${foundedClans[0].name}». После удаления у рода не будет родоначальника, и потомки перестанут вычислять этот тухум. Удалить всё равно?`
+          : `\n\nЭтот человек — родоначальник родов ${foundedClans
+              .map((clan) => `«${clan.name}»`)
+              .join(", ")}. После удаления у этих родов не будет родоначальника, и потомки перестанут вычислять тухум. Удалить всё равно?`;
     const confirmed = window.confirm(
-      `Удалить ${name || "этого человека"} из дерева? Связи с родственниками тоже пропадут, сами люди останутся.`,
+      `Удалить ${name} из дерева? Связи с родственниками тоже пропадут, сами люди останутся.${founderNote}`,
     );
     if (!confirmed) return;
     setSaving(true);

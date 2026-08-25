@@ -29,6 +29,12 @@ export function CreatePersonForm() {
   });
 
   async function submit() {
+    if (hits.length > 0) {
+      const ok = window.confirm(
+        "Похожие люди уже есть в дереве. Точно создать нового, а не нажать «Это он»?",
+      );
+      if (!ok) return;
+    }
     setSaving(true);
     setError("");
     try {

@@ -104,6 +104,14 @@ export async function createClan(input: {
   return toClanDto(clan);
 }
 
+export async function listClansFoundedBy(personId: string): Promise<ClanDTO[]> {
+  const clans = await prisma.clan.findMany({
+    where: { founderId: personId },
+    orderBy: { name: "asc" },
+  });
+  return clans.map(toClanDto);
+}
+
 export async function resolvePersonClan(
   personId: string,
   claimedClanId: string | null,

@@ -242,3 +242,186 @@ export function stepCaption(step: KinshipStep): string | null {
   if (!step.via) return null;
   return viaWord(step.via, step.person);
 }
+
+export type KinshipPath = {
+  relation: string;
+  steps: KinshipStep[];
+};
+
+export type MultiKinshipResult = {
+  from: PersonDTO;
+  to: PersonDTO;
+  primary: KinshipPath;
+  alternates: KinshipPath[];
+};
+
+export type KinshipLookup = KinshipResult & {
+  alternates: KinshipPath[];
+};
+
+export type DoubledAncestor = {
+  person: PersonDTO;
+  pathCount: number;
+};
+
+const MAX_PATH_STEPS = 8;
+const MAX_PATHS = 6;
+const MAX_INSPECTED = 50_000;
+
+function labelPath(
+  indexed: IndexedGraph,
+  from: PersonDTO,
+  to: PersonDTO,
+  raw: Array<{ id: string; via: KinStepType | null }>,
+): KinshipPath {
+  const steps: KinshipStep[] = raw.map((item) => ({
+    person: indexed.byId.get(item.id)!,
+    via: item.via,
+  }));
+  const types = raw.slice(1).map((item) => item.via!);
+  const blood = describeBlood(types, to);
+  const inLaw = inLawRelation(
+    types,
+    from,
+    to,
+    steps.map((step) => step.person),
+  );
+  return {
+    relation: blood ?? inLaw ?? `родственник через ${types.length} связей`,
+    steps,
+  };
+}
+
+function pathSequenceKey(ids: string[]): string {
+  return ids.join(">");
+}
+
+function pathSetKey(ids: string[]): string {
+  return [...ids].sort().join(">");
+}
+
+function collectSimplePaths(
+  indexed: IndexedGraph,
+  fromId: string,
+  toId: string,
+): Array<Array<{ id: string; via: KinStepType | null }>> {
+  type State = {
+    ids: string[];
+    vias: Array<KinStepType | null>;
+  };
+  const queue: State[] = [{ ids: [fromId], vias: [null] }];
+  const found: Array<Array<{ id: string; via: KinStepType | null }>> = [];
+  const seenSeq = new Set<string>();
+  const seenSet = new Set<string>();
+  let inspected = 0;
+
+  while (queue.length > 0 && found.length < MAX_PATHS && inspected < MAX_INSPECTED) {
+    const current = queue.shift()!;
+    inspected += 1;
+    const lastId = current.ids[current.ids.length - 1];
+    const steps = current.ids.length - 1;
+
+    if (steps > 0 && lastId === toId) {
+      const seq = pathSequenceKey(current.ids);
+      const set = pathSetKey(current.ids);
+      if (seenSeq.has(seq) || seenSet.has(set)) continue;
+      seenSeq.add(seq);
+      seenSet.add(set);
+      found.push(
+        current.ids.map((id, index) => ({ id, via: current.vias[index] })),
+      );
+      continue;
+    }
+
+    if (steps >= MAX_PATH_STEPS) continue;
+    const inPath = new Set(current.ids);
+    for (const next of neighbors(indexed, lastId)) {
+      if (inPath.has(next.id)) continue;
+      queue.push({
+        ids: [...current.ids, next.id],
+        vias: [...current.vias, next.type],
+      });
+    }
+  }
+
+  return found;
+}
+
+export function findAllKinshipPaths(
+  graph: KinGraph,
+  fromId: string,
+  toId: string,
+): MultiKinshipResult | { error: string } {
+  const primaryResult = findKinship(graph, fromId, toId);
+  if ("error" in primaryResult) return primaryResult;
+
+  const primary: KinshipPath = {
+    relation: primaryResult.relation,
+    steps: primaryResult.steps,
+  };
+  if (fromId === toId) {
+    return {
+      from: primaryResult.from,
+      to: primaryResult.to,
+      primary,
+      alternates: [],
+    };
+  }
+
+  const indexed = indexGraph(graph);
+  const primaryKey = pathSequenceKey(primary.steps.map((step) => step.person.id));
+  const primarySet = pathSetKey(primary.steps.map((step) => step.person.id));
+  const alternates: KinshipPath[] = [];
+
+  for (const raw of collectSimplePaths(indexed, fromId, toId)) {
+    const ids = raw.map((item) => item.id);
+    if (pathSequenceKey(ids) === primaryKey || pathSetKey(ids) === primarySet) {
+      continue;
+    }
+    alternates.push(labelPath(indexed, primaryResult.from, primaryResult.to, raw));
+    if (alternates.length >= MAX_PATHS - 1) break;
+  }
+
+  return {
+    from: primaryResult.from,
+    to: primaryResult.to,
+    primary,
+    alternates,
+  };
+}
+
+export function findDoubledAncestors(
+  graph: KinGraph,
+  personId: string,
+): DoubledAncestor[] {
+  const indexed = indexGraph(graph);
+  const start = indexed.byId.get(personId);
+  if (!start) return [];
+
+  const pathCounts = new Map<string, number>();
+  let inspected = 0;
+
+  function walk(id: string, depth: number, visiting: Set<string>) {
+    if (inspected >= MAX_INSPECTED || depth >= MAX_PATH_STEPS) return;
+    for (const parentId of indexed.parentsOf.get(id) ?? []) {
+      inspected += 1;
+      if (inspected >= MAX_INSPECTED) return;
+      if (visiting.has(parentId)) continue;
+      pathCounts.set(parentId, (pathCounts.get(parentId) ?? 0) + 1);
+      visiting.add(parentId);
+      walk(parentId, depth + 1, visiting);
+      visiting.delete(parentId);
+    }
+  }
+
+  walk(personId, 0, new Set([personId]));
+
+  return [...pathCounts.entries()]
+    .filter(([, pathCount]) => pathCount > 1)
+    .map(([id, pathCount]) => {
+      const person = indexed.byId.get(id);
+      return person ? { person, pathCount } : null;
+    })
+    .filter((item): item is DoubledAncestor => Boolean(item))
+    .sort((a, b) => b.pathCount - a.pathCount || a.person.firstName.localeCompare(b.person.firstName, "ru"));
+}

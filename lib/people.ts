@@ -2,15 +2,17 @@ import "server-only";
 
 import { Prisma, type Person } from "@prisma/client";
 import { writeChangeLog } from "@/lib/changelog";
-import { resolvePersonClan } from "@/lib/clan";
+import { computeClanFromGraph, listClans, resolvePersonClan, listClansFoundedBy, toClanDto } from "@/lib/clan";
 import { prisma } from "@/lib/db";
-import { findKinship } from "@/lib/kinship";
+import { findAllKinshipPaths, findKinship } from "@/lib/kinship";
 import { buildPersonTree } from "@/lib/tree";
 import type { KinGraph } from "@/lib/graph";
 import {
   fatherLabel,
   formatFio,
+  nameFamily,
   nameTokens,
+  nameVariants,
   normalizeName,
   type FamilyDTO,
   type Gender,
@@ -139,11 +141,18 @@ export async function deletePerson(id: string): Promise<void> {
       asParent: true,
       marriagesA: true,
       marriagesB: true,
+      foundedClans: true,
     },
   });
   if (!person) throw new Error("Человек не найден");
 
   await prisma.$transaction(async (tx) => {
+    if (person.foundedClans.length > 0) {
+      await tx.clan.updateMany({
+        where: { founderId: id },
+        data: { founderId: null },
+      });
+    }
     await writeChangeLog(tx, {
       action: "person.delete",
       personId: id,
@@ -155,6 +164,7 @@ export async function deletePerson(id: string): Promise<void> {
           ...person.marriagesA.map((marriage) => marriage.personBId),
           ...person.marriagesB.map((marriage) => marriage.personAId),
         ],
+        foundedClans: person.foundedClans.map(toClanDto),
       },
     });
     await tx.person.delete({ where: { id } });
@@ -168,6 +178,8 @@ export async function searchPeople(options: {
   patronymic?: string;
   gender?: Gender;
   excludeIds?: string[];
+  nearId?: string;
+  role?: RelationRole;
   limit?: number;
 }): Promise<SearchHit[]> {
   const tokens = nameTokens(
@@ -182,12 +194,12 @@ export async function searchPeople(options: {
     where: {
       AND: [
         ...tokens.map((token) => ({
-          OR: [
-            { lastNameNorm: { startsWith: token } },
-            { firstNameNorm: { startsWith: token } },
-            { patronymicNorm: { startsWith: token } },
-            { aliases: { some: { nameNorm: { startsWith: token } } } },
-          ],
+          OR: nameVariants(token).flatMap((variant) => [
+            { lastNameNorm: { startsWith: variant } },
+            { firstNameNorm: { startsWith: variant } },
+            { patronymicNorm: { startsWith: variant } },
+            { aliases: { some: { nameNorm: { startsWith: variant } } } },
+          ]),
         })),
         options.gender ? { gender: options.gender } : {},
         options.excludeIds?.length
@@ -198,20 +210,72 @@ export async function searchPeople(options: {
     include: {
       aliases: true,
       asChild: { include: { parent: true } },
+      asParent: { include: { child: true } },
     },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    take: options.limit ?? 8,
+    take: 40,
   });
 
-  return people.map((person) => {
+  const [clans, graph, near] = await Promise.all([
+    listClans(),
+    loadKinGraph(),
+    options.nearId
+      ? prisma.person.findUnique({ where: { id: options.nearId } })
+      : null,
+  ]);
+
+  const nearClanId = near
+    ? (computeClanFromGraph(graph, clans, near.id)?.id ?? near.claimedClanId)
+    : null;
+  const yearDelta =
+    options.role === "father" || options.role === "mother"
+      ? -28
+      : options.role === "child"
+        ? 28
+        : options.role === "spouse"
+          ? 0
+          : null;
+
+  const hits: SearchHit[] = people.map((person) => {
     const father =
       person.asChild.map((link) => link.parent).find((parent) => parent.gender === "male") ??
       null;
+    const clan =
+      computeClanFromGraph(graph, clans, person.id) ??
+      (person.claimedClanId
+        ? clans.find((item) => item.id === person.claimedClanId) ?? null
+        : null);
+    const childNames = person.asParent
+      .map((link) => link.child.firstName)
+      .filter(Boolean)
+      .slice(0, 3);
     return {
       ...toDto(person),
       fatherLabel: fatherLabel(person.gender as Gender, father),
+      clanName: clan?.name ?? null,
+      childrenLabel: childNames.length ? childNames.join(", ") : null,
+      sameClan: Boolean(nearClanId && clan?.id === nearClanId),
     };
   });
+
+  hits.sort((left, right) => {
+    const score = (hit: SearchHit) => {
+      let points = 0;
+      if (hit.sameClan) points += 80;
+      if (yearDelta !== null && near?.birthYear && hit.birthYear) {
+        const diff = Math.abs(hit.birthYear - (near.birthYear + yearDelta));
+        if (diff <= 8) points += 50;
+        else if (diff <= 15) points += 25;
+        else if (diff <= 25) points += 10;
+        else points -= 10;
+      }
+      const first = nameFamily(options.firstName || options.query || "");
+      if (first && nameFamily(hit.firstName) === first) points += 30;
+      return points;
+    };
+    return score(right) - score(left);
+  });
+
+  return hits.slice(0, options.limit ?? 8);
 }
 
 export async function listRecentPeople(limit = 20): Promise<PersonDTO[]> {
@@ -265,6 +329,11 @@ export async function getFamily(id: string): Promise<FamilyDTO | null> {
     siblings.push(link.child);
   }
 
+  const [clan, foundedClans] = await Promise.all([
+    resolvePersonClan(person.id, person.claimedClanId),
+    listClansFoundedBy(person.id),
+  ]);
+
   return {
     person: toDto(person),
     father: father ? toDto(father) : null,
@@ -272,7 +341,8 @@ export async function getFamily(id: string): Promise<FamilyDTO | null> {
     spouses: spouses.map(toDto),
     children: children.map(toDto),
     siblings: siblings.map(toDto),
-    clan: await resolvePersonClan(person.id, person.claimedClanId),
+    clan,
+    foundedClans,
   };
 }
 
@@ -475,7 +545,14 @@ export async function loadKinGraph(): Promise<KinGraph> {
 }
 
 export async function getKinship(fromId: string, toId: string) {
-  return findKinship(await loadKinGraph(), fromId, toId);
+  const graph = await loadKinGraph();
+  const primary = findKinship(graph, fromId, toId);
+  if ("error" in primary) return primary;
+  const multi = findAllKinshipPaths(graph, fromId, toId);
+  return {
+    ...primary,
+    alternates: "error" in multi ? [] : multi.alternates,
+  };
 }
 
 export async function getPersonTree(id: string) {

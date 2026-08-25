@@ -1,6 +1,6 @@
 "use client";
 
-import { formatFio, personYears, type SearchHit } from "@/lib/names";
+import { formatFio, searchHitCaption, type SearchHit } from "@/lib/names";
 
 type Props = {
   hits: SearchHit[];
@@ -19,13 +19,15 @@ export function SuggestionList({ hits, loading, onPick }: Props) {
     <div className="grid gap-2">
       <p className="text-sm font-medium">Такое ФИО уже есть. Это тот же человек?</p>
       {hits.map((hit) => {
-        const details = [personYears(hit), hit.fatherLabel]
-          .filter(Boolean)
-          .join(" · ");
+        const details = searchHitCaption(hit);
         return (
           <div
             key={hit.id}
-            className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white p-2"
+            className={`flex items-center gap-2 rounded-xl border bg-white p-2 ${
+              hit.sameClan
+                ? "border-[var(--accent)]"
+                : "border-[var(--line)]"
+            }`}
           >
             <div className="min-w-0 flex-1 px-1">
               <div className="font-medium leading-snug">{formatFio(hit)}</div>

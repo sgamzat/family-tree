@@ -11,6 +11,8 @@ export function usePersonSearch(options: {
   patronymic?: string;
   gender?: Gender;
   excludeIds?: string[];
+  nearId?: string;
+  role?: string;
   enabled?: boolean;
 }) {
   const query = options.query ?? "";
@@ -19,6 +21,8 @@ export function usePersonSearch(options: {
   const patronymic = options.patronymic ?? "";
   const gender = options.gender;
   const excludeKey = (options.excludeIds ?? []).join(",");
+  const nearId = options.nearId ?? "";
+  const role = options.role ?? "";
   const enabled = options.enabled ?? true;
   const hasQuery =
     enabled &&
@@ -33,6 +37,8 @@ export function usePersonSearch(options: {
     patronymic,
     gender ?? "",
     excludeKey,
+    nearId,
+    role,
   ].join("|");
 
   const [result, setResult] = useState<{ key: string; hits: SearchHit[] }>({
@@ -49,6 +55,8 @@ export function usePersonSearch(options: {
     if (firstName) params.set("firstName", firstName);
     if (patronymic) params.set("patronymic", patronymic);
     if (gender) params.set("gender", gender);
+    if (nearId) params.set("near", nearId);
+    if (role) params.set("role", role);
     for (const id of excludeKey.split(",").filter(Boolean)) {
       params.append("exclude", id);
     }
@@ -74,6 +82,8 @@ export function usePersonSearch(options: {
     patronymic,
     gender,
     excludeKey,
+    nearId,
+    role,
   ]);
 
   const ready = result.key === requestKey;

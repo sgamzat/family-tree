@@ -17,7 +17,8 @@ export default async function KinshipPage({
         <h1 className="text-2xl font-semibold tracking-tight">Родство</h1>
         <p className="mt-1 text-[var(--muted)]">
           Укажите двух людей — приложение найдёт цепочку через родителей, детей и
-          браки и назовёт, кем они приходятся.
+          браки и назовёт, кем они приходятся. Если связей несколько, покажет и
+          остальные.
         </p>
       </div>
       <KinshipFinder initialFrom={family?.person ?? null} />

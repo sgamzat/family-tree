@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatFio, personYears, type PersonDTO, type SearchHit } from "@/lib/names";
+import { formatFio, personYears, searchHitCaption, type PersonDTO, type SearchHit } from "@/lib/names";
 
 type Props = {
   person: PersonDTO | SearchHit;
@@ -10,9 +10,11 @@ type Props = {
 };
 
 export function PersonTile({ person, href, caption, current, onClick }: Props) {
-  const years = personYears(person);
   const extra = "fatherLabel" in person ? person.fatherLabel : caption;
-  const details = [years, extra].filter(Boolean).join(" · ");
+  const details =
+    "clanName" in person
+      ? searchHitCaption(person)
+      : [personYears(person), extra].filter(Boolean).join(" · ");
 
   const content = (
     <>
