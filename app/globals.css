@@ -1,0 +1,222 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f4efe6;
+  --ink: #1f2a24;
+  --muted: #5d6a63;
+  --line: #e0d6c8;
+  --line-strong: #c9bba8;
+  --accent: #2c6a4a;
+  --accent-soft: #e5f0e8;
+  --male: #3d5a80;
+  --female: #8b4d6b;
+  --slot: #fbf8f2;
+  --danger: #9b2c2c;
+}
+
+@theme inline {
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-manrope);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.field {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: white;
+  padding: 0.7rem 0.85rem;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.choice {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 0.7rem 0.85rem;
+}
+
+.btn-primary {
+  display: block;
+  width: 100%;
+  border-radius: 0.9rem;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  padding: 0.85rem 1rem;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+}
+
+.btn-secondary {
+  border-radius: 0.75rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.tree-card {
+  display: block;
+  min-width: 7.5rem;
+  max-width: 9.5rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line);
+  background: white;
+  padding: 0.55rem 0.7rem;
+  text-align: center;
+}
+
+.tree-card-male {
+  border-top: 3px solid var(--male);
+}
+
+.tree-card-female {
+  border-top: 3px solid var(--female);
+}
+
+.tree-card-current {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tree-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.15rem 0 0.35rem;
+}
+
+.tree-arrow-shaft {
+  width: 2px;
+  height: 0.7rem;
+  background: var(--accent);
+}
+
+.tree-arrow-head {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--accent);
+  margin-top: -1px;
+}
+
+.tree-arrow-label {
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  text-transform: lowercase;
+}
+
+.ftree ul {
+  display: flex;
+  justify-content: center;
+  padding-top: 1.35rem;
+  position: relative;
+}
+
+.ftree li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  list-style: none;
+  position: relative;
+  padding: 1.35rem 0.45rem 0;
+}
+
+.ftree li::before,
+.ftree li::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 50%;
+  border-top: 2px solid var(--accent);
+  width: 50%;
+  height: 1.35rem;
+}
+
+.ftree li::after {
+  right: auto;
+  left: 50%;
+  border-left: 2px solid var(--accent);
+}
+
+.ftree li:only-child::before {
+  display: none;
+}
+
+.ftree li:only-child::after {
+  display: block;
+  left: 50%;
+  right: auto;
+  width: 0;
+  border: 0;
+  border-left: 2px solid var(--accent);
+  height: 1.35rem;
+}
+
+.ftree li:only-child {
+  padding-top: 1.35rem;
+}
+
+.ftree li:first-child::before,
+.ftree li:last-child::after {
+  border: 0 none;
+}
+
+.ftree li:last-child::before {
+  border-right: 2px solid var(--accent);
+}
+
+.ftree ul ul::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  border-left: 2px solid var(--accent);
+  width: 0;
+  height: 1.35rem;
+}
+
+.ftree li > .tree-card,
+.ftree li > div {
+  position: relative;
+}
+
+.ftree ul ul::after {
+  content: "";
+  position: absolute;
+  top: 1.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--accent);
+}

@@ -1,0 +1,12 @@
+services:
+  web:
+    build:
+      context: .
+      pull: false
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: file:/data/family-tree.db
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

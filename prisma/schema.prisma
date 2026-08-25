@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id             String   @id @default(cuid())
+  lastName       String
+  firstName      String
+  patronymic     String   @default("")
+  lastNameNorm   String
+  firstNameNorm  String
+  patronymicNorm String   @default("")
+  gender         String
+  birthYear      Int?
+  deathYear      Int?
+  createdAt      DateTime @default(now())
+
+  asParent   ParentChild[] @relation("Parent")
+  asChild    ParentChild[] @relation("Child")
+  marriagesA Marriage[]    @relation("SpouseA")
+  marriagesB Marriage[]    @relation("SpouseB")
+
+  @@index([lastNameNorm])
+  @@index([firstNameNorm])
+  @@index([patronymicNorm])
+}
+
+model ParentChild {
+  id       String @id @default(cuid())
+  parentId String
+  childId  String
+  parent   Person @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
+  child    Person @relation("Child", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, childId])
+  @@index([parentId])
+  @@index([childId])
+}
+
+model Marriage {
+  id        String @id @default(cuid())
+  personAId String
+  personBId String
+  personA   Person @relation("SpouseA", fields: [personAId], references: [id], onDelete: Cascade)
+  personB   Person @relation("SpouseB", fields: [personBId], references: [id], onDelete: Cascade)
+
+  @@unique([personAId, personBId])
+  @@index([personAId])
+  @@index([personBId])
+}
