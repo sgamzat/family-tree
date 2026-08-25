@@ -1,8 +1,14 @@
 services:
   web:
+    image: family-tree-web
+    pull_policy: never
     build:
       context: .
       pull: false
+      additional_contexts:
+        node-base: docker-image://node:20-bookworm-slim
+      args:
+        NODE_IMAGE: node-base
     ports:
       - "3000:3000"
     environment:

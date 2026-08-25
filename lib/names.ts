@@ -1,5 +1,18 @@
 export type Gender = "male" | "female";
 
+export type ClanDTO = {
+  id: string;
+  name: string;
+  founderId: string | null;
+  parentClanId: string | null;
+};
+
+export type ClanResolution = {
+  claimed: ClanDTO | null;
+  computed: ClanDTO | null;
+  mismatch: boolean;
+};
+
 export type PersonDTO = {
   id: string;
   lastName: string;
@@ -8,6 +21,12 @@ export type PersonDTO = {
   gender: Gender;
   birthYear: number | null;
   deathYear: number | null;
+  birthDateText: string;
+  deathDateText: string;
+  isLiving: boolean | null;
+  sourceNote: string;
+  aliases: string[];
+  claimedClanId: string | null;
 };
 
 export type SearchHit = PersonDTO & {
@@ -21,6 +40,7 @@ export type FamilyDTO = {
   spouses: PersonDTO[];
   children: PersonDTO[];
   siblings: PersonDTO[];
+  clan: ClanResolution;
 };
 
 export type PersonInput = {
@@ -30,6 +50,12 @@ export type PersonInput = {
   gender: Gender;
   birthYear: number | null;
   deathYear: number | null;
+  birthDateText: string;
+  deathDateText: string;
+  isLiving: boolean | null;
+  sourceNote: string;
+  aliases: string[];
+  claimedClanId: string | null;
 };
 
 export type RelationRole = "father" | "mother" | "spouse" | "child";
@@ -63,11 +89,31 @@ export function formatFio(person: {
 export function formatYears(
   birthYear: number | null,
   deathYear: number | null,
+  birthDateText = "",
+  deathDateText = "",
 ): string {
-  if (birthYear && deathYear) return `${birthYear}–${deathYear}`;
-  if (birthYear) return `род. ${birthYear}`;
-  if (deathYear) return `ум. ${deathYear}`;
+  const birth = birthYear ? String(birthYear) : birthDateText.trim();
+  const death = deathYear ? String(deathYear) : deathDateText.trim();
+  if (birth && death) return `${birth}–${death}`;
+  if (birthYear && !death) return `род. ${birthYear}`;
+  if (birth && !death) return `род. ${birth}`;
+  if (deathYear && !birth) return `ум. ${deathYear}`;
+  if (death && !birth) return `ум. ${death}`;
   return "";
+}
+
+export function personYears(person: {
+  birthYear: number | null;
+  deathYear: number | null;
+  birthDateText?: string;
+  deathDateText?: string;
+}): string {
+  return formatYears(
+    person.birthYear,
+    person.deathYear,
+    person.birthDateText ?? "",
+    person.deathDateText ?? "",
+  );
 }
 
 export function fatherLabel(
@@ -249,7 +295,6 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
   const lastName = String(body.lastName ?? "").trim();
   const firstName = String(body.firstName ?? "").trim();
   const patronymic = String(body.patronymic ?? "").trim();
-  if (!lastName) throw new Error("Укажите фамилию");
   if (!firstName) throw new Error("Укажите имя");
 
   const gender = parseGender(body.gender);
@@ -259,5 +304,43 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
     throw new Error("Год смерти не может быть раньше года рождения");
   }
 
-  return { lastName, firstName, patronymic, gender, birthYear, deathYear };
+  const claimedRaw = String(body.claimedClanId ?? "").trim();
+  let isLiving: boolean | null = null;
+  if (body.isLiving === true || body.isLiving === "true") isLiving = true;
+  if (body.isLiving === false || body.isLiving === "false") isLiving = false;
+
+  return {
+    lastName,
+    firstName,
+    patronymic,
+    gender,
+    birthYear,
+    deathYear,
+    birthDateText: String(body.birthDateText ?? "").trim(),
+    deathDateText: String(body.deathDateText ?? "").trim(),
+    isLiving,
+    sourceNote: String(body.sourceNote ?? "").trim(),
+    aliases: parseAliases(body.aliases),
+    claimedClanId: claimedRaw || null,
+  };
+}
+
+export function parseAliases(value: unknown): string[] {
+  const raw =
+    typeof value === "string"
+      ? value
+      : Array.isArray(value)
+        ? value.map((item) => String(item)).join(",")
+        : "";
+  const seen = new Set<string>();
+  const aliases: string[] = [];
+  for (const part of raw.split(/[,;\n]/)) {
+    const name = part.trim();
+    if (!name) continue;
+    const key = normalizeName(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    aliases.push(name);
+  }
+  return aliases;
 }

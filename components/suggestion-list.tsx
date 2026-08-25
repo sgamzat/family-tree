@@ -1,6 +1,6 @@
 "use client";
 
-import { formatFio, formatYears, type SearchHit } from "@/lib/names";
+import { formatFio, personYears, type SearchHit } from "@/lib/names";
 
 type Props = {
   hits: SearchHit[];
@@ -19,7 +19,7 @@ export function SuggestionList({ hits, loading, onPick }: Props) {
     <div className="grid gap-2">
       <p className="text-sm font-medium">Такое ФИО уже есть. Это тот же человек?</p>
       {hits.map((hit) => {
-        const details = [formatYears(hit.birthYear, hit.deathYear), hit.fatherLabel]
+        const details = [personYears(hit), hit.fatherLabel]
           .filter(Boolean)
           .join(" · ");
         return (

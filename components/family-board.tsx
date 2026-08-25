@@ -1,27 +1,94 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AddRelativeSheet } from "@/components/add-relative-sheet";
 import { AddSlot, PersonTile } from "@/components/person-tile";
-import type { FamilyDTO, RelationRole } from "@/lib/names";
+import { api } from "@/lib/api";
+import type { FamilyDTO, PersonDTO, RelationRole } from "@/lib/names";
+
+function unlinkPrompt(role: RelationRole, relative: PersonDTO): string {
+  const who = [relative.lastName, relative.firstName].filter(Boolean).join(" ");
+  const labels: Record<RelationRole, string> = {
+    father: "отца",
+    mother: "мать",
+    spouse: "супруга",
+    child: "ребёнка",
+  };
+  return `Отвязать ${labels[role]} ${who}? Сам человек останется в дереве.`;
+}
+
+function LinkedPerson({
+  person,
+  role,
+  href,
+  onUnlink,
+}: {
+  person: PersonDTO;
+  role: RelationRole;
+  href: string;
+  onUnlink: () => void;
+}) {
+  return (
+    <div className="grid gap-1">
+      <PersonTile person={person} href={href} />
+      <button type="button" className="unlink" onClick={onUnlink}>
+        Отвязать {role === "father" ? "отца" : role === "mother" ? "мать" : role === "spouse" ? "супруга" : "ребёнка"}
+      </button>
+    </div>
+  );
+}
 
 export function FamilyBoard({ family }: { family: FamilyDTO }) {
+  const router = useRouter();
   const [role, setRole] = useState<RelationRole | null>(null);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+
+  async function unlink(role: RelationRole, relative: PersonDTO) {
+    if (!window.confirm(unlinkPrompt(role, relative))) return;
+    setBusyId(relative.id);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        personId: family.person.id,
+        role,
+        relativeId: relative.id,
+      });
+      await api(`/api/relations?${params.toString()}`, { method: "DELETE" });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отвязать");
+    } finally {
+      setBusyId("");
+    }
+  }
 
   return (
     <div className="grid gap-6">
+      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       <section className="grid gap-2">
         <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
           Родители
         </h2>
         <div className="grid grid-cols-2 gap-2">
           {family.father ? (
-            <PersonTile person={family.father} href={`/people/${family.father.id}`} />
+            <LinkedPerson
+              person={family.father}
+              role="father"
+              href={`/people/${family.father.id}`}
+              onUnlink={() => unlink("father", family.father!)}
+            />
           ) : (
             <AddSlot label="Добавить отца" onClick={() => setRole("father")} />
           )}
           {family.mother ? (
-            <PersonTile person={family.mother} href={`/people/${family.mother.id}`} />
+            <LinkedPerson
+              person={family.mother}
+              role="mother"
+              href={`/people/${family.mother.id}`}
+              onUnlink={() => unlink("mother", family.mother!)}
+            />
           ) : (
             <AddSlot label="Добавить мать" onClick={() => setRole("mother")} />
           )}
@@ -35,7 +102,13 @@ export function FamilyBoard({ family }: { family: FamilyDTO }) {
         <div className="grid grid-cols-2 gap-2">
           <PersonTile person={family.person} current />
           {family.spouses.map((spouse) => (
-            <PersonTile key={spouse.id} person={spouse} href={`/people/${spouse.id}`} />
+            <LinkedPerson
+              key={spouse.id}
+              person={spouse}
+              role="spouse"
+              href={`/people/${spouse.id}`}
+              onUnlink={() => unlink("spouse", spouse)}
+            />
           ))}
           <AddSlot
             label={family.person.gender === "male" ? "Добавить супругу" : "Добавить супруга"}
@@ -50,7 +123,13 @@ export function FamilyBoard({ family }: { family: FamilyDTO }) {
         </h2>
         <div className="grid grid-cols-2 gap-2">
           {family.children.map((child) => (
-            <PersonTile key={child.id} person={child} href={`/people/${child.id}`} />
+            <LinkedPerson
+              key={child.id}
+              person={child}
+              role="child"
+              href={`/people/${child.id}`}
+              onUnlink={() => unlink("child", child)}
+            />
           ))}
           <AddSlot label="Добавить ребёнка" onClick={() => setRole("child")} />
         </div>
@@ -68,6 +147,8 @@ export function FamilyBoard({ family }: { family: FamilyDTO }) {
           </div>
         </section>
       ) : null}
+
+      {busyId ? <p className="text-sm text-[var(--muted)]">Отвязываем…</p> : null}
 
       {role ? (
         <AddRelativeSheet

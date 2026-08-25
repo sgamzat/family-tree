@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatYears, type PersonDTO } from "@/lib/names";
+import { personYears, type PersonDTO } from "@/lib/names";
 import type { AncestorNode, ClanTree, DescentNode, PersonTree } from "@/lib/tree";
 
 function TreeCard({
@@ -9,7 +9,7 @@ function TreeCard({
   person: PersonDTO;
   current?: boolean;
 }) {
-  const years = formatYears(person.birthYear, person.deathYear);
+  const years = personYears(person);
   return (
     <Link
       href={`/people/${person.id}`}
@@ -18,7 +18,9 @@ function TreeCard({
       }`}
     >
       <span className="block font-medium leading-snug">{person.firstName}</span>
-      <span className="block text-xs text-[var(--muted)]">{person.lastName}</span>
+      {person.lastName ? (
+        <span className="block text-xs text-[var(--muted)]">{person.lastName}</span>
+      ) : null}
       {years ? <span className="block text-xs text-[var(--muted)]">{years}</span> : null}
     </Link>
   );

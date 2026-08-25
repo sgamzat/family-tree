@@ -12,6 +12,7 @@
   --female: #8b4d6b;
   --slot: #fbf8f2;
   --danger: #9b2c2c;
+  --danger-soft: #f8e8e8;
 }
 
 @theme inline {
@@ -76,6 +77,26 @@ body {
   font-weight: 600;
   font-size: 0.875rem;
   padding: 0.55rem 0.75rem;
+}
+
+.btn-danger {
+  display: block;
+  width: 100%;
+  border-radius: 0.9rem;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 600;
+  padding: 0.85rem 1rem;
+}
+
+.unlink {
+  justify-self: start;
+  font-size: 0.75rem;
+  color: var(--danger);
+}
+
+.unlink:disabled {
+  opacity: 0.5;
 }
 
 .tree-card {

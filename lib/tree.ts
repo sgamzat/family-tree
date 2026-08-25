@@ -134,17 +134,24 @@ export function maxDown(graph: KinGraph, personId: string): number {
   return walk(personId, new Set());
 }
 
-export function paternalRootId(graph: KinGraph, personId: string): string {
+export function paternalLineIds(graph: KinGraph, personId: string): string[] {
   const indexed = indexGraph(graph);
+  const ids: string[] = [];
   let current = personId;
   const seen = new Set<string>();
   while (!seen.has(current)) {
     seen.add(current);
+    ids.push(current);
     const { father } = asParents(indexed, current);
     if (!father) break;
     current = father.id;
   }
-  return current;
+  return ids;
+}
+
+export function paternalRootId(graph: KinGraph, personId: string): string {
+  const line = paternalLineIds(graph, personId);
+  return line[line.length - 1] ?? personId;
 }
 
 export function buildPersonTree(

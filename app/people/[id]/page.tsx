@@ -1,6 +1,6 @@
 import { FamilyBoard } from "@/components/family-board";
+import { PersonHeading } from "@/components/person-heading";
 import { TreeExplorer } from "@/components/tree-explorer";
-import { formatFio, formatYears } from "@/lib/names";
 import { getFamily, loadKinGraph } from "@/lib/people";
 import { notFound } from "next/navigation";
 
@@ -16,20 +16,9 @@ export default async function PersonPage({
   if (!family) notFound();
   const graph = await loadKinGraph();
 
-  const years = formatYears(family.person.birthYear, family.person.deathYear);
-
   return (
     <div className="grid gap-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {formatFio(family.person)}
-        </h1>
-        <p className="mt-1 text-[var(--muted)]">
-          {[years, family.person.gender === "male" ? "мужчина" : "женщина"]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-      </div>
+      <PersonHeading person={family.person} clan={family.clan} />
       <TreeExplorer graph={graph} personId={id} />
       <FamilyBoard family={family} />
     </div>

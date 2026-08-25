@@ -9,7 +9,7 @@ datasource db {
 
 model Person {
   id             String   @id @default(cuid())
-  lastName       String
+  lastName       String   @default("")
   firstName      String
   patronymic     String   @default("")
   lastNameNorm   String
@@ -18,24 +18,62 @@ model Person {
   gender         String
   birthYear      Int?
   deathYear      Int?
+  birthDateText  String   @default("")
+  deathDateText  String   @default("")
+  isLiving       Boolean?
+  sourceNote     String   @default("")
+  claimedClanId  String?
   createdAt      DateTime @default(now())
 
-  asParent   ParentChild[] @relation("Parent")
-  asChild    ParentChild[] @relation("Child")
-  marriagesA Marriage[]    @relation("SpouseA")
-  marriagesB Marriage[]    @relation("SpouseB")
+  claimedClan  Clan?         @relation("ClaimedClan", fields: [claimedClanId], references: [id], onDelete: SetNull)
+  foundedClans Clan[]        @relation("ClanFounder")
+  aliases      PersonAlias[]
+  asParent     ParentChild[] @relation("Parent")
+  asChild      ParentChild[] @relation("Child")
+  marriagesA   Marriage[]    @relation("SpouseA")
+  marriagesB   Marriage[]    @relation("SpouseB")
 
   @@index([lastNameNorm])
   @@index([firstNameNorm])
   @@index([patronymicNorm])
+  @@index([claimedClanId])
+}
+
+model PersonAlias {
+  id       String @id @default(cuid())
+  personId String
+  name     String
+  nameNorm String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([nameNorm])
+}
+
+model Clan {
+  id           String   @id @default(cuid())
+  name         String
+  nameNorm     String
+  founderId    String?
+  parentClanId String?
+  createdAt    DateTime @default(now())
+
+  founder    Person? @relation("ClanFounder", fields: [founderId], references: [id], onDelete: SetNull)
+  parentClan Clan?   @relation("ClanLineage", fields: [parentClanId], references: [id], onDelete: SetNull)
+  childClans Clan[]  @relation("ClanLineage")
+  members    Person[] @relation("ClaimedClan")
+
+  @@index([nameNorm])
+  @@index([founderId])
 }
 
 model ParentChild {
-  id       String @id @default(cuid())
-  parentId String
-  childId  String
-  parent   Person @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
-  child    Person @relation("Child", fields: [childId], references: [id], onDelete: Cascade)
+  id         String @id @default(cuid())
+  parentId   String
+  childId    String
+  sourceNote String @default("")
+  parent     Person @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
+  child      Person @relation("Child", fields: [childId], references: [id], onDelete: Cascade)
 
   @@unique([parentId, childId])
   @@index([parentId])
@@ -43,13 +81,25 @@ model ParentChild {
 }
 
 model Marriage {
-  id        String @id @default(cuid())
-  personAId String
-  personBId String
-  personA   Person @relation("SpouseA", fields: [personAId], references: [id], onDelete: Cascade)
-  personB   Person @relation("SpouseB", fields: [personBId], references: [id], onDelete: Cascade)
+  id         String @id @default(cuid())
+  personAId  String
+  personBId  String
+  sourceNote String @default("")
+  personA    Person @relation("SpouseA", fields: [personAId], references: [id], onDelete: Cascade)
+  personB    Person @relation("SpouseB", fields: [personBId], references: [id], onDelete: Cascade)
 
   @@unique([personAId, personBId])
   @@index([personAId])
   @@index([personBId])
+}
+
+model ChangeLog {
+  id        String   @id @default(cuid())
+  action    String
+  personId  String?
+  payload   String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([personId])
+  @@index([createdAt])
 }

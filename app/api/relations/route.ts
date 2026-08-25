@@ -1,8 +1,23 @@
 import { jsonError } from "@/lib/http";
 import { parsePersonInput } from "@/lib/names";
-import { addRelation, parseRelationRole } from "@/lib/people";
+import { addRelation, parseRelationRole, unlinkRelation } from "@/lib/people";
 
 export const dynamic = "force-dynamic";
+
+function relationArgs(source: Record<string, unknown> | URLSearchParams) {
+  const read = (key: string) => {
+    if (source instanceof URLSearchParams) return source.get(key) ?? "";
+    return String(source[key] ?? "").trim();
+  };
+  const personId = read("personId").trim();
+  const relativeId = read("relativeId").trim();
+  if (!personId) throw new Error("Не указан человек");
+  return {
+    personId,
+    relativeId,
+    role: parseRelationRole(read("role")),
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +37,7 @@ export async function POST(request: Request) {
       role: parseRelationRole(body.role),
       existingPersonId,
       newPerson,
+      sourceNote: String(body.sourceNote ?? "").trim(),
     });
     return Response.json(family);
   } catch (error) {
@@ -29,6 +45,18 @@ export async function POST(request: Request) {
     if (message.includes("Unique constraint")) {
       return jsonError(new Error("Такая родственная связь уже есть"));
     }
+    return jsonError(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const { personId, role, relativeId } = relationArgs(searchParams);
+    if (!relativeId) throw new Error("Не указан родственник");
+    const family = await unlinkRelation({ personId, role, relativeId });
+    return Response.json(family);
+  } catch (error) {
     return jsonError(error);
   }
 }

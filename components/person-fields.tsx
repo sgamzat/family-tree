@@ -1,7 +1,7 @@
 "use client";
 
-import { useId } from "react";
-import type { Gender } from "@/lib/names";
+import { useId, type ReactNode } from "react";
+import type { Gender, PersonDTO } from "@/lib/names";
 
 export type PersonFormValue = {
   lastName: string;
@@ -10,7 +10,31 @@ export type PersonFormValue = {
   gender: Gender;
   birthYear: string;
   deathYear: string;
+  birthDateText: string;
+  deathDateText: string;
+  isLiving: "" | "true" | "false";
+  sourceNote: string;
+  aliases: string;
+  claimedClanId: string;
 };
+
+export function personToForm(person: PersonDTO): PersonFormValue {
+  return {
+    lastName: person.lastName,
+    firstName: person.firstName,
+    patronymic: person.patronymic,
+    gender: person.gender,
+    birthYear: person.birthYear ? String(person.birthYear) : "",
+    deathYear: person.deathYear ? String(person.deathYear) : "",
+    birthDateText: person.birthDateText,
+    deathDateText: person.deathDateText,
+    isLiving:
+      person.isLiving === true ? "true" : person.isLiving === false ? "false" : "",
+    sourceNote: person.sourceNote,
+    aliases: person.aliases.join(", "),
+    claimedClanId: person.claimedClanId ?? "",
+  };
+}
 
 export const emptyPersonForm = (gender: Gender = "male"): PersonFormValue => ({
   lastName: "",
@@ -19,15 +43,22 @@ export const emptyPersonForm = (gender: Gender = "male"): PersonFormValue => ({
   gender,
   birthYear: "",
   deathYear: "",
+  birthDateText: "",
+  deathDateText: "",
+  isLiving: "",
+  sourceNote: "",
+  aliases: "",
+  claimedClanId: "",
 });
 
 type Props = {
   value: PersonFormValue;
   onChange: (value: PersonFormValue) => void;
   lockGender?: boolean;
+  extras?: ReactNode;
 };
 
-export function PersonFields({ value, onChange, lockGender }: Props) {
+export function PersonFields({ value, onChange, lockGender, extras }: Props) {
   const genderName = useId();
   function patch(partial: Partial<PersonFormValue>) {
     onChange({ ...value, ...partial });
@@ -36,7 +67,7 @@ export function PersonFields({ value, onChange, lockGender }: Props) {
   return (
     <div className="grid gap-3">
       <label className="grid gap-1">
-        <span className="text-sm text-[var(--muted)]">Фамилия</span>
+        <span className="text-sm text-[var(--muted)]">Фамилия (необязательно)</span>
         <input
           autoComplete="family-name"
           className="field"
@@ -112,6 +143,7 @@ export function PersonFields({ value, onChange, lockGender }: Props) {
           />
         </label>
       </div>
+      {extras}
     </div>
   );
 }

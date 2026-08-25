@@ -2,15 +2,18 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { PersonExtras } from "@/components/person-extras";
 import { PersonFields, emptyPersonForm } from "@/components/person-fields";
 import { SuggestionList } from "@/components/suggestion-list";
 import { api } from "@/lib/api";
 import { parsePersonInput, type PersonDTO } from "@/lib/names";
+import { useClans } from "@/lib/use-clans";
 import { usePersonSearch } from "@/lib/use-person-search";
 
 export function CreatePersonForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { clans, addClan } = useClans();
   const [form, setForm] = useState(() => ({
     ...emptyPersonForm(),
     lastName: searchParams.get("lastName") ?? "",
@@ -49,7 +52,18 @@ export function CreatePersonForm() {
 
   return (
     <div className="grid gap-4">
-      <PersonFields value={form} onChange={setForm} />
+      <PersonFields
+        value={form}
+        onChange={setForm}
+        extras={
+          <PersonExtras
+            value={form}
+            onChange={setForm}
+            clans={clans}
+            onClanCreated={addClan}
+          />
+        }
+      />
       <SuggestionList
         hits={hits}
         loading={loading}
