@@ -13,6 +13,7 @@
   --slot: #fbf8f2;
   --danger: #9b2c2c;
   --danger-soft: #f8e8e8;
+  --union: #b07d2b;
 }
 
 @theme inline {
@@ -123,121 +124,59 @@ body {
   background: var(--accent-soft);
 }
 
-.tree-arrow {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.15rem 0 0.35rem;
-}
-
-.tree-arrow-shaft {
-  width: 2px;
-  height: 0.7rem;
-  background: var(--accent);
-}
-
-.tree-arrow-head {
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid var(--accent);
-  margin-top: -1px;
-}
-
-.tree-arrow-label {
-  margin-top: 0.15rem;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--accent);
-  text-transform: lowercase;
-}
-
-.ftree ul {
-  display: flex;
-  justify-content: center;
-  padding-top: 1.35rem;
+.tree-canvas {
   position: relative;
 }
 
-.ftree li {
+.tree-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tree-line {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tree-line--spouse {
+  stroke: var(--union);
+  stroke-width: 2.4;
+}
+
+.tree-junction {
+  fill: var(--line-strong);
+}
+
+.tree-flow {
+  position: relative;
+  z-index: 1;
+}
+
+.tree-flow-descent ul,
+.tree-flow-descent {
+  display: flex;
+  justify-content: center;
+}
+
+.tree-flow-descent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-flow-descent li {
   display: flex;
   flex-direction: column;
   align-items: center;
   list-style: none;
   position: relative;
-  padding: 1.35rem 0.45rem 0;
-}
-
-.ftree li::before,
-.ftree li::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 50%;
-  border-top: 2px solid var(--accent);
-  width: 50%;
-  height: 1.35rem;
-}
-
-.ftree li::after {
-  right: auto;
-  left: 50%;
-  border-left: 2px solid var(--accent);
-}
-
-.ftree li:only-child::before {
-  display: none;
-}
-
-.ftree li:only-child::after {
-  display: block;
-  left: 50%;
-  right: auto;
-  width: 0;
-  border: 0;
-  border-left: 2px solid var(--accent);
-  height: 1.35rem;
-}
-
-.ftree li:only-child {
-  padding-top: 1.35rem;
-}
-
-.ftree li:first-child::before,
-.ftree li:last-child::after {
-  border: 0 none;
-}
-
-.ftree li:last-child::before {
-  border-right: 2px solid var(--accent);
-}
-
-.ftree ul ul::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  border-left: 2px solid var(--accent);
-  width: 0;
-  height: 1.35rem;
-}
-
-.ftree li > .tree-card,
-.ftree li > div {
-  position: relative;
-}
-
-.ftree ul ul::after {
-  content: "";
-  position: absolute;
-  top: 1.15rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 7px solid var(--accent);
+  padding: 2.4rem 0.5rem 0;
 }

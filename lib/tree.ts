@@ -5,12 +5,14 @@ export type AncestorNode = {
   person: PersonDTO;
   father: AncestorNode | null;
   mother: AncestorNode | null;
+  parentIds: string[];
 };
 
 export type DescentNode = {
   person: PersonDTO;
   spouses: PersonDTO[];
   children: DescentNode[];
+  parentIds: string[];
 };
 
 export type PersonTree = {
@@ -60,19 +62,22 @@ function buildAncestors(
   id: string,
   depth: number,
   visiting: Set<string>,
+  seen: Set<string>,
 ): AncestorNode | null {
   const person = graph.byId.get(id);
-  if (!person || visiting.has(id) || depth < 0) return null;
+  if (!person || visiting.has(id) || seen.has(id) || depth < 0) return null;
   visiting.add(id);
+  seen.add(id);
   const { father, mother } = asParents(graph, id);
   const node: AncestorNode = {
     person,
     father: father
-      ? buildAncestors(graph, father.id, depth - 1, visiting)
+      ? buildAncestors(graph, father.id, depth - 1, visiting, seen)
       : null,
     mother: mother
-      ? buildAncestors(graph, mother.id, depth - 1, visiting)
+      ? buildAncestors(graph, mother.id, depth - 1, visiting, seen)
       : null,
+    parentIds: [...(graph.parentsOf.get(id) ?? [])],
   };
   visiting.delete(id);
   return node;
@@ -83,18 +88,26 @@ function buildDescent(
   id: string,
   depth: number,
   visiting: Set<string>,
+  seen: Set<string>,
 ): DescentNode | null {
   const person = graph.byId.get(id);
   if (!person || visiting.has(id) || depth < 0) return null;
   visiting.add(id);
+  seen.add(id);
   const spouses = (graph.spousesOf.get(id) ?? [])
     .map((spouseId) => graph.byId.get(spouseId))
     .filter((spouse): spouse is PersonDTO => Boolean(spouse));
   const children = (graph.childrenOf.get(id) ?? [])
-    .map((childId) => buildDescent(graph, childId, depth - 1, visiting))
+    .filter((childId) => !seen.has(childId))
+    .map((childId) => buildDescent(graph, childId, depth - 1, visiting, seen))
     .filter((child): child is DescentNode => Boolean(child));
   visiting.delete(id);
-  return { person, spouses, children };
+  return {
+    person,
+    spouses,
+    children,
+    parentIds: [...(graph.parentsOf.get(id) ?? [])],
+  };
 }
 
 function siblingsOf(graph: IndexedGraph, personId: string): PersonDTO[] {
@@ -165,8 +178,8 @@ export function buildPersonTree(
 
   const up = depth.up ?? 3;
   const down = depth.down ?? 3;
-  const ancestors = buildAncestors(indexed, personId, up, new Set());
-  const descendants = buildDescent(indexed, personId, down, new Set());
+  const ancestors = buildAncestors(indexed, personId, up, new Set(), new Set());
+  const descendants = buildDescent(indexed, personId, down, new Set(), new Set());
   if (!ancestors || !descendants) return null;
 
   return {
@@ -186,7 +199,7 @@ export function buildClanTree(
   const focus = indexed.byId.get(personId);
   if (!focus) return null;
   const rootId = paternalRootId(graph, personId);
-  const root = buildDescent(indexed, rootId, down, new Set());
+  const root = buildDescent(indexed, rootId, down, new Set(), new Set());
   const rootPerson = indexed.byId.get(rootId);
   if (!root || !rootPerson) return null;
   return { focus, root, rootPerson };
