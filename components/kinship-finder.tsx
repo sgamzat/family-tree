@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PersonPicker } from "@/components/person-picker";
 import { PersonTile } from "@/components/person-tile";
 import { api } from "@/lib/api";
-import { formatFio, type PersonDTO } from "@/lib/names";
+import type { PersonDTO } from "@/lib/names";
 import {
+  pathUsesSpouse,
+  splitAlternatePaths,
   stepCaption,
   type KinshipLookup,
   type KinshipPath,
@@ -16,22 +18,24 @@ function KinshipPathView({
   from,
   to,
   relation,
-  sentence,
   steps,
+  compact,
 }: {
   from: PersonDTO;
   to: PersonDTO;
   relation: string;
-  sentence?: string;
   steps: KinshipStep[];
+  compact?: boolean;
 }) {
-  const text =
-    sentence ?? `${formatFio(to)} — ${relation} для ${formatFio(from)}.`;
-
   return (
-    <div className="grid gap-3 rounded-2xl border border-[var(--line)] bg-white p-4">
-      <p className="text-lg font-semibold">{relation}</p>
-      <p className="text-[var(--muted)]">{text}</p>
+    <div
+      className={
+        compact
+          ? "grid gap-2"
+          : "grid gap-3 rounded-2xl border border-[var(--line)] bg-white p-4"
+      }
+    >
+      <p className={compact ? "font-medium" : "text-lg font-semibold"}>{relation}</p>
       <ol className="grid gap-2">
         {steps.map((step, index) => (
           <li key={`${step.person.id}-${index}`} className="grid gap-1">
@@ -48,11 +52,6 @@ function KinshipPathView({
           </li>
         ))}
       </ol>
-      {steps.length > 1 ? (
-        <p className="text-xs text-[var(--muted)]">
-          Цепочка: {steps.map((step) => formatFio(step.person)).join(" → ")}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -61,10 +60,12 @@ function AlternatePath({
   from,
   to,
   path,
+  compact,
 }: {
   from: PersonDTO;
   to: PersonDTO;
   path: KinshipPath;
+  compact?: boolean;
 }) {
   return (
     <KinshipPathView
@@ -72,6 +73,7 @@ function AlternatePath({
       to={to}
       relation={path.relation}
       steps={path.steps}
+      compact={compact}
     />
   );
 }
@@ -87,85 +89,110 @@ export function KinshipFinder({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function search() {
-    if (!from || !to) return;
+  useEffect(() => {
+    if (!from || !to) {
+      setResult(null);
+      setError("");
+      setLoading(false);
+      return;
+    }
+
+    const fromId = from.id;
+    const toId = to.id;
+    let cancelled = false;
     setLoading(true);
     setError("");
     setResult(null);
-    try {
-      const data = await api<KinshipLookup | { error: string }>(
-        `/api/kinship?from=${from.id}&to=${to.id}`,
-      );
-      if ("error" in data && data.error) {
-        setError(data.error);
-        return;
-      }
-      setResult(data as KinshipLookup);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось найти связь");
-    } finally {
-      setLoading(false);
-    }
-  }
+
+    void api<KinshipLookup | { error: string }>(
+      `/api/kinship?from=${fromId}&to=${toId}`,
+    )
+      .then((data) => {
+        if (cancelled) return;
+        if ("error" in data && data.error) {
+          setError(data.error);
+          return;
+        }
+        setResult(data as KinshipLookup);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Не удалось найти связь");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [from, to]);
+
+  const split = result
+    ? splitAlternatePaths(
+        { relation: result.relation, steps: result.steps },
+        result.alternates,
+      )
+    : null;
 
   return (
     <div className="grid gap-5">
       <PersonPicker
-        label="Первый человек"
+        label="Для кого"
         value={from}
-        onChange={(person) => {
-          setFrom(person);
-          setResult(null);
-        }}
+        onChange={setFrom}
         excludeId={to?.id}
       />
       <PersonPicker
-        label="Второй человек"
+        label="Кем приходится"
         value={to}
-        onChange={(person) => {
-          setTo(person);
-          setResult(null);
-        }}
+        onChange={setTo}
         excludeId={from?.id}
       />
-      <button
-        type="button"
-        className="btn-primary"
-        disabled={!from || !to || loading}
-        onClick={search}
-      >
-        {loading ? "Ищем связь…" : "Показать родство"}
-      </button>
+      {loading ? <p className="text-sm text-[var(--muted)]">Ищем связь…</p> : null}
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-      {result ? (
+      {result && split ? (
         <div className="grid gap-4">
           <KinshipPathView
             from={result.from}
             to={result.to}
             relation={result.relation}
-            sentence={result.sentence}
             steps={result.steps}
           />
-          {result.alternates.length > 0 ? (
-            <div className="grid gap-3">
+          {split.close ? (
+            <div className="grid gap-2">
               <div>
                 <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
-                  Ещё {result.alternates.length === 1 ? "один путь" : "пути"}
+                  {pathUsesSpouse(split.close) ? "Через брак" : "Кровная линия"}
                 </h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  При близких браках люди часто связаны сразу несколькими
-                  линиями — кровной и через свойство.
+                  При близких браках люди связаны сразу несколькими линиями.
                 </p>
               </div>
-              {result.alternates.map((path, index) => (
-                <AlternatePath
-                  key={`${path.relation}-${index}`}
-                  from={result.from}
-                  to={result.to}
-                  path={path}
-                />
-              ))}
+              <AlternatePath
+                from={result.from}
+                to={result.to}
+                path={split.close}
+              />
             </div>
+          ) : null}
+          {split.extra.length > 0 ? (
+            <details className="kin-more">
+              <summary>
+                Ещё {split.extra.length === 1 ? "одна линия" : `линии (${split.extra.length})`}
+              </summary>
+              <div className="mt-3 grid gap-4">
+                {split.extra.map((path, index) => (
+                  <AlternatePath
+                    key={`${path.relation}-${index}`}
+                    from={result.from}
+                    to={result.to}
+                    path={path}
+                    compact
+                  />
+                ))}
+              </div>
+            </details>
           ) : null}
         </div>
       ) : null}

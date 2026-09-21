@@ -259,6 +259,42 @@ export type KinshipLookup = KinshipResult & {
   alternates: KinshipPath[];
 };
 
+function usesSpouse(path: { steps: KinshipStep[] }): boolean {
+  return path.steps.some((step) => step.via === "spouse");
+}
+
+function stepCount(path: { steps: KinshipStep[] }): number {
+  return Math.max(0, path.steps.length - 1);
+}
+
+function isNamedRelation(relation: string): boolean {
+  return !relation.startsWith("родственник через");
+}
+
+export function splitAlternatePaths(
+  primary: { relation: string; steps: KinshipStep[] },
+  alternates: KinshipPath[],
+): { close: KinshipPath | null; extra: KinshipPath[] } {
+  const primarySpouse = usesSpouse(primary);
+  const maxLen = stepCount(primary) + 2;
+  const candidates = alternates.filter((path) => {
+    if (usesSpouse(path) === primarySpouse) return false;
+    if (path.relation === primary.relation) return false;
+    return stepCount(path) <= maxLen;
+  });
+  const named = candidates.filter((path) => isNamedRelation(path.relation));
+  const close =
+    [...named].sort((a, b) => stepCount(a) - stepCount(b))[0] ?? null;
+  return {
+    close,
+    extra: alternates.filter((path) => path !== close),
+  };
+}
+
+export function pathUsesSpouse(path: { steps: KinshipStep[] }): boolean {
+  return usesSpouse(path);
+}
+
 export type DoubledAncestor = {
   person: PersonDTO;
   pathCount: number;

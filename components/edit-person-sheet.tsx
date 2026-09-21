@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PersonExtras } from "@/components/person-extras";
 import { PersonFields, personToForm } from "@/components/person-fields";
+import { Sheet } from "@/components/sheet";
 import { api } from "@/lib/api";
 import { parsePersonInput, formatFio, type ClanDTO, type FamilyDTO, type PersonDTO } from "@/lib/names";
 import { useClans } from "@/lib/use-clans";
@@ -65,47 +66,34 @@ export function EditPersonSheet({ person, foundedClans, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-20 bg-black/40" onClick={onClose}>
-      <div
-        className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-auto rounded-t-2xl bg-[var(--paper)] p-4 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mx-auto max-w-2xl">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <h2 className="text-lg font-semibold">Изменить карточку</h2>
-            <button type="button" className="text-sm text-[var(--muted)]" onClick={onClose}>
-              Закрыть
-            </button>
-          </div>
-          <PersonFields
+    <Sheet title="Изменить карточку" onClose={onClose}>
+      <PersonFields
+        value={form}
+        onChange={setForm}
+        extras={
+          <PersonExtras
             value={form}
             onChange={setForm}
-            extras={
-              <PersonExtras
-                value={form}
-                onChange={setForm}
-                clans={clans}
-                onClanCreated={addClan}
-                founderId={person.id}
-              />
-            }
+            clans={clans}
+            onClanCreated={addClan}
+            founderId={person.id}
           />
-          {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
-          <div className="mt-4 grid gap-2">
-            <button type="button" className="btn-primary" disabled={saving} onClick={save}>
-              {saving ? "Сохраняем…" : "Сохранить"}
-            </button>
-            <button
-              type="button"
-              className="btn-danger"
-              disabled={saving}
-              onClick={remove}
-            >
-              Удалить человека
-            </button>
-          </div>
-        </div>
+        }
+      />
+      {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
+      <div className="mt-4 grid gap-2">
+        <button type="button" className="btn-primary" disabled={saving} onClick={save}>
+          {saving ? "Сохраняем…" : "Сохранить"}
+        </button>
+        <button
+          type="button"
+          className="btn-danger"
+          disabled={saving}
+          onClick={remove}
+        >
+          Удалить человека
+        </button>
       </div>
-    </div>
+    </Sheet>
   );
 }

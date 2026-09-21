@@ -50,7 +50,7 @@ function DepthChips({
           <button
             key={option.label}
             type="button"
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+            className={`min-h-11 rounded-full px-3 py-1.5 text-sm font-medium ${
               value === option.value
                 ? "bg-[var(--accent)] text-white"
                 : "bg-white text-[var(--ink)] ring-1 ring-[var(--line)]"
@@ -107,7 +107,7 @@ export function TreeExplorer({
         </h2>
         <Link
           href={`/kinship?from=${personId}`}
-          className="text-sm font-medium text-[var(--accent)]"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--accent)]"
         >
           Кем приходится
         </Link>
@@ -116,7 +116,7 @@ export function TreeExplorer({
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+          className={`min-h-11 rounded-full px-3 py-1.5 text-sm font-medium ${
             mode === "line"
               ? "bg-[var(--accent)] text-white"
               : "bg-white ring-1 ring-[var(--line)]"
@@ -127,7 +127,7 @@ export function TreeExplorer({
         </button>
         <button
           type="button"
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+          className={`min-h-11 rounded-full px-3 py-1.5 text-sm font-medium ${
             mode === "clan"
               ? "bg-[var(--accent)] text-white"
               : "bg-white ring-1 ring-[var(--line)]"
@@ -174,16 +174,17 @@ export function TreeExplorer({
       )}
 
       {mode === "line" && lineTree ? (
-        <LineageTree tree={lineTree} doubledById={doubledById} />
+        <LineageTree tree={lineTree} graph={graph} doubledById={doubledById} />
       ) : null}
       {mode === "clan" && clanTree ? (
-        <ClanTreeView tree={clanTree} doubledById={doubledById} />
+        <ClanTreeView tree={clanTree} graph={graph} doubledById={doubledById} />
       ) : null}
 
       <p className="text-xs text-[var(--muted)]">
-        Стрелка вниз — к детям. Выделен тот, кого вы открыли.
+        Толстая черта — супруги, тонкая линия вниз — дети.
+        Жирная рамка — тот, кого вы открыли. Широкое древо листайте пальцем в сторону.
         {doubledById && Object.keys(doubledById).length > 0
-          ? " Значок ×N — предок входит в родословную несколькими путями."
+          ? " Значок ×N — предок входит несколькими путями, часто из-за близкого брака."
           : ""}
       </p>
     </section>

@@ -1,6 +1,4 @@
-import { FamilyBoard } from "@/components/family-board";
-import { PersonHeading } from "@/components/person-heading";
-import { TreeExplorer } from "@/components/tree-explorer";
+import { TreeWorkspace } from "@/components/tree-workspace";
 import { findDoubledAncestors } from "@/lib/kinship";
 import { getFamily, loadKinGraph } from "@/lib/people";
 import { notFound } from "next/navigation";
@@ -22,15 +20,12 @@ export default async function PersonPage({
   );
 
   return (
-    <div className="grid gap-5">
-      <PersonHeading
-        person={family.person}
-        clan={family.clan}
-        foundedClans={family.foundedClans}
-        doubledAncestors={doubledAncestors}
-      />
-      <TreeExplorer graph={graph} personId={id} doubledById={doubledById} />
-      <FamilyBoard family={family} />
-    </div>
+    <TreeWorkspace
+      key={id}
+      family={family}
+      graph={graph}
+      doubledById={doubledById}
+      doubledAncestors={doubledAncestors}
+    />
   );
 }

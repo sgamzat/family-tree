@@ -40,7 +40,14 @@ export function PersonTile({ person, href, caption, current, onClick }: Props) {
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={className}>
+      <button
+        type="button"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          onClick();
+        }}
+        className={className}
+      >
         {content}
       </button>
     );

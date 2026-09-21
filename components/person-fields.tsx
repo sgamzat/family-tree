@@ -70,6 +70,9 @@ export function PersonFields({ value, onChange, lockGender, extras }: Props) {
         <span className="text-sm text-[var(--muted)]">Фамилия (необязательно)</span>
         <input
           autoComplete="family-name"
+          autoCapitalize="words"
+          autoCorrect="off"
+          spellCheck={false}
           className="field"
           value={value.lastName}
           onChange={(event) => patch({ lastName: event.target.value })}
@@ -80,6 +83,9 @@ export function PersonFields({ value, onChange, lockGender, extras }: Props) {
         <span className="text-sm text-[var(--muted)]">Имя</span>
         <input
           autoComplete="given-name"
+          autoCapitalize="words"
+          autoCorrect="off"
+          spellCheck={false}
           className="field"
           value={value.firstName}
           onChange={(event) => patch({ firstName: event.target.value })}
@@ -90,6 +96,9 @@ export function PersonFields({ value, onChange, lockGender, extras }: Props) {
         <span className="text-sm text-[var(--muted)]">Отчество</span>
         <input
           autoComplete="additional-name"
+          autoCapitalize="words"
+          autoCorrect="off"
+          spellCheck={false}
           className="field"
           value={value.patronymic}
           onChange={(event) => patch({ patronymic: event.target.value })}

@@ -71,7 +71,7 @@ export function FamilyBoard({ family }: { family: FamilyDTO }) {
         <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
           Родители
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="family-grid">
           {family.father ? (
             <LinkedPerson
               person={family.father}
@@ -99,7 +99,7 @@ export function FamilyBoard({ family }: { family: FamilyDTO }) {
         <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
           Семья
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="family-grid">
           <PersonTile person={family.person} current />
           {family.spouses.map((spouse) => (
             <LinkedPerson
@@ -121,7 +121,7 @@ export function FamilyBoard({ family }: { family: FamilyDTO }) {
         <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
           Дети
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="family-grid">
           {family.children.map((child) => (
             <LinkedPerson
               key={child.id}
@@ -140,7 +140,7 @@ export function FamilyBoard({ family }: { family: FamilyDTO }) {
           <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
             Братья и сёстры
           </h2>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="family-grid">
             {family.siblings.map((sibling) => (
               <PersonTile key={sibling.id} person={sibling} href={`/people/${sibling.id}`} />
             ))}

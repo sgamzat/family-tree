@@ -35,20 +35,15 @@ export function PersonHeading({
 
   return (
     <div className="grid gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {formatFio(person)}
-          </h1>
-          <p className="mt-1 text-[var(--muted)]">
-            {[years, living, person.gender === "male" ? "мужчина" : "женщина"]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        <button type="button" className="btn-secondary shrink-0" onClick={() => setEditing(true)}>
-          Изменить
-        </button>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {formatFio(person)}
+        </h1>
+        <p className="mt-1 text-[var(--muted)]">
+          {[years, living, person.gender === "male" ? "мужчина" : "женщина"]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
       </div>
       {clanHint ? (
         <p className="text-sm text-[var(--muted)]">{clanHint}</p>
@@ -72,6 +67,9 @@ export function PersonHeading({
       {person.sourceNote ? (
         <p className="text-sm text-[var(--muted)]">Источник: {person.sourceNote}</p>
       ) : null}
+      <button type="button" className="quiet-link" onClick={() => setEditing(true)}>
+        Изменить карточку
+      </button>
       {doubledAncestors.length > 0 ? (
         <p className="rounded-xl bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--accent)]">
           В родословной предок входит несколькими путями:{" "}

@@ -1,517 +1,526 @@
 "use client";
 
 import Link from "next/link";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useRouter } from "next/navigation";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import { indexGraph, type IndexedGraph, type KinGraph } from "@/lib/graph";
 import { personYears, type PersonDTO } from "@/lib/names";
 import type { AncestorNode, ClanTree, DescentNode, PersonTree } from "@/lib/tree";
 
-const RegisterCtx = createContext<
-  ((id: string, el: HTMLElement | null) => void) | null
->(null);
+const BOX_W = 108;
+const BOX_H = 54;
+const PAIR_GAP = 24;
+const UNIT_GAP = 40;
+const ROW_GAP = 52;
+const ROW = BOX_H + ROW_GAP;
+const PAD = 16;
 
-const StructuralCtx = createContext<Set<string>>(new Set());
-
-type Edge = { a: string; b: string; kind: "parent" | "parent2" | "spouse" };
-
-type Rel = {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-  cx: number;
-  cy: number;
-  h: number;
+type Placed = {
+  person: PersonDTO;
+  x: number;
+  y: number;
+  current: boolean;
 };
 
-function collectStructuralIds(opts: {
-  ancestors?: AncestorNode | null;
-  descentRoot?: DescentNode | null;
-  extra?: string[];
-}): Set<string> {
-  const ids = new Set<string>();
-  const up = (n: AncestorNode | null) => {
-    if (!n) return;
-    ids.add(n.person.id);
-    up(n.father);
-    up(n.mother);
-  };
-  const down = (n: DescentNode) => {
-    ids.add(n.person.id);
-    for (const child of n.children) down(child);
-  };
-  if (opts.ancestors) up(opts.ancestors);
-  if (opts.descentRoot) down(opts.descentRoot);
-  for (const id of opts.extra ?? []) ids.add(id);
-  return ids;
+type Line = { d: string; kind: "parent" | "spouse" };
+
+type Unit = {
+  id: string;
+  members: PersonDTO[];
+  gen: number;
+  children: Unit[];
+  parentUnits: Unit[];
+  x: number;
+  y: number;
+  subtree: number;
+};
+
+function round(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
-function collectEdges(opts: {
-  ancestors?: AncestorNode | null;
-  descentRoot?: DescentNode | null;
-  structuralIds: Set<string>;
-}): Edge[] {
-  const edges: Edge[] = [];
-  const seen = new Set<string>();
-  const add = (a: string, b: string, kind: Edge["kind"]) => {
-    const k = a < b ? `${a}|${b}` : `${b}|${a}`;
-    if (seen.has(k)) return;
-    seen.add(k);
-    edges.push({ a, b, kind });
-  };
-
-  const up = (n: AncestorNode | null) => {
-    if (!n) return;
-    if (n.father) {
-      add(n.person.id, n.father.person.id, "parent");
-      up(n.father);
-    }
-    if (n.mother) {
-      add(n.person.id, n.mother.person.id, "parent");
-      up(n.mother);
-    }
-    for (const pid of n.parentIds) {
-      if (pid !== n.father?.person.id && pid !== n.mother?.person.id) {
-        add(n.person.id, pid, "parent2");
-      }
-    }
-    const pair = n.parentIds.filter((id) => opts.structuralIds.has(id));
-    if (pair[0] && pair[1]) add(pair[0], pair[1], "spouse");
-  };
-
-  const down = (n: DescentNode) => {
-    for (const spouse of n.spouses) {
-      if (spouse.id !== n.person.id && opts.structuralIds.has(spouse.id)) {
-        add(n.person.id, spouse.id, "spouse");
-      }
-    }
-    for (const c of n.children) {
-      add(n.person.id, c.person.id, "parent");
-      for (const pid of c.parentIds) {
-        if (pid !== n.person.id) add(pid, c.person.id, "parent2");
-      }
-      down(c);
-    }
-  };
-
-  if (opts.ancestors) up(opts.ancestors);
-  if (opts.descentRoot) down(opts.descentRoot);
-  return edges;
+function unitSpan(count: number): number {
+  return count * BOX_W + Math.max(0, count - 1) * PAIR_GAP;
 }
 
-function rectRel(el: HTMLElement, o: DOMRect): Rel {
-  const r = el.getBoundingClientRect();
-  return {
-    left: r.left - o.left,
-    right: r.right - o.left,
-    top: r.top - o.top,
-    bottom: r.bottom - o.top,
-    cx: r.left + r.width / 2 - o.left,
-    cy: r.top + r.height / 2 - o.top,
-    h: r.height,
-  };
+function orderCouple(people: PersonDTO[]): PersonDTO[] {
+  const female = people.filter((person) => person.gender === "female");
+  const male = people.filter((person) => person.gender === "male");
+  return [...female, ...male];
 }
 
-function verticalLink(a: Rel, b: Rel): string {
-  const aAbove = a.bottom <= b.top;
-  const ay = aAbove ? a.bottom : a.top;
-  const by = aAbove ? b.top : b.bottom;
-  const m = (ay + by) / 2;
-  return `M ${a.cx} ${ay} C ${a.cx} ${m}, ${b.cx} ${m}, ${b.cx} ${by}`;
+function birthRank(person: PersonDTO): number {
+  return person.birthYear ?? 9999;
 }
 
-function spouseRoute(
-  A: Rel,
-  B: Rel,
-  obstacles: { el: HTMLElement; r: Rel }[],
-  skip: HTMLElement[],
-): string {
-  const L = A.cx <= B.cx ? A : B;
-  const R = A.cx <= B.cx ? B : A;
-  const x1 = L.right;
-  const y1 = L.cy;
-  const x2 = R.left;
-  const y2 = R.cy;
+function addPerson(
+  map: Map<string, { person: PersonDTO; gen: number }>,
+  person: PersonDTO | null | undefined,
+  gen: number,
+  override = false,
+) {
+  if (!person) return;
+  if (map.has(person.id) && !override) return;
+  map.set(person.id, { person, gen });
+}
 
-  let maxBottom = Math.max(L.bottom, R.bottom);
-  for (const { el, r } of obstacles) {
-    if (skip.includes(el)) continue;
-    const between = r.cx > Math.min(L.cx, R.cx) + 1 && r.cx < Math.max(L.cx, R.cx) - 1;
-    const sameRow = Math.abs(r.top - L.top) < L.h + 40;
-    if (between && sameRow) maxBottom = Math.max(maxBottom, r.bottom);
+function collectFromAncestors(
+  node: AncestorNode | null,
+  gen: number,
+  map: Map<string, { person: PersonDTO; gen: number }>,
+) {
+  if (!node) return;
+  addPerson(map, node.person, gen);
+  collectFromAncestors(node.father, gen - 1, map);
+  collectFromAncestors(node.mother, gen - 1, map);
+}
+
+function collectFromDescent(
+  node: DescentNode | null,
+  gen: number,
+  map: Map<string, { person: PersonDTO; gen: number }>,
+) {
+  if (!node) return;
+  addPerson(map, node.person, gen);
+  for (const spouse of node.spouses) addPerson(map, spouse, gen);
+  for (const child of node.children) collectFromDescent(child, gen + 1, map);
+}
+
+function peopleFromLineage(
+  tree: PersonTree,
+  graph: IndexedGraph | null,
+): Map<string, { person: PersonDTO; gen: number }> {
+  const map = new Map<string, { person: PersonDTO; gen: number }>();
+  collectFromAncestors(tree.ancestors, 0, map);
+  collectFromDescent(tree.descendants, 0, map);
+  for (const sibling of tree.siblings) addPerson(map, sibling, 0);
+
+  if (!graph) return map;
+
+  for (const { person, gen } of [...map.values()]) {
+    for (const spouseId of graph.spousesOf.get(person.id) ?? []) {
+      addPerson(map, graph.byId.get(spouseId), gen);
+    }
   }
 
-  const routeY = maxBottom + 14;
-  const r = Math.min(
-    12,
-    Math.max(4, (x2 - x1) / 2),
-    (routeY - Math.min(y1, y2)) / 2,
-  );
-  return (
-    `M ${x1} ${y1}` +
-    ` V ${routeY - r}` +
-    ` Q ${x1} ${routeY} ${x1 + r} ${routeY}` +
-    ` H ${x2 - r}` +
-    ` Q ${x2} ${routeY} ${x2} ${routeY - r}` +
-    ` V ${y2}`
-  );
+  for (const spouse of tree.descendants.spouses) {
+    addPerson(map, spouse, 0);
+    for (const parentId of graph.parentsOf.get(spouse.id) ?? []) {
+      addPerson(map, graph.byId.get(parentId), -1);
+    }
+  }
+
+  for (const [childId, { gen }] of [...map.entries()]) {
+    if (gen <= 0) continue;
+    for (const parentId of graph.parentsOf.get(childId) ?? []) {
+      addPerson(map, graph.byId.get(parentId), gen - 1);
+    }
+  }
+
+  return map;
 }
 
-function TreeCanvas({
-  edges,
-  structuralIds,
-  children,
-}: {
-  edges: Edge[];
-  structuralIds: Set<string>;
-  children: ReactNode;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const registry = useRef<Map<string, HTMLElement>>(new Map());
-  const [paths, setPaths] = useState<{ d: string; kind: Edge["kind"] }[]>([]);
-  const [dots, setDots] = useState<{ x: number; y: number }[]>([]);
+function peopleFromClan(
+  tree: ClanTree,
+): Map<string, { person: PersonDTO; gen: number }> {
+  const map = new Map<string, { person: PersonDTO; gen: number }>();
+  collectFromDescent(tree.root, 0, map);
+  return map;
+}
 
-  const register = useCallback((id: string, el: HTMLElement | null) => {
-    if (el) registry.current.set(id, el);
-    else registry.current.delete(id);
-  }, []);
+function formUnits(
+  people: Map<string, { person: PersonDTO; gen: number }>,
+  graph: IndexedGraph | null,
+): Unit[] {
+  const units: Unit[] = [];
+  const genOf = (id: string) => people.get(id)?.gen ?? 0;
+  const rootOf = new Map<string, string>();
+  const find = (id: string): string => {
+    if (!rootOf.has(id)) rootOf.set(id, id);
+    const cur = rootOf.get(id) ?? id;
+    if (cur !== id) rootOf.set(id, find(cur));
+    return rootOf.get(id) ?? id;
+  };
+  const join = (a: string, b: string) => {
+    if (genOf(a) !== genOf(b)) return;
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) rootOf.set(ra, rb);
+  };
 
-  const compute = useCallback(() => {
-    const box = containerRef.current;
-    if (!box) return;
-    const o = box.getBoundingClientRect();
-
-    const relById = new Map<string, { el: HTMLElement; r: Rel }>();
-    registry.current.forEach((el, id) => relById.set(id, { el, r: rectRel(el, o) }));
-    const obstacles = Array.from(relById.values());
-
-    const lines: { d: string; kind: Edge["kind"] }[] = [];
-    const meet = new Map<string, { x: number; y: number; n: number }>();
-
-    for (const e of edges) {
-      const A = relById.get(e.a);
-      const B = relById.get(e.b);
-      if (!A || !B) continue;
-
-      if (e.kind === "spouse") {
-        lines.push({
-          d: spouseRoute(A.r, B.r, obstacles, [A.el, B.el]),
-          kind: "spouse",
-        });
-      } else {
-        lines.push({ d: verticalLink(A.r, B.r), kind: e.kind });
-        const child =
-          e.kind === "parent2" || A.r.cy >= B.r.cy
-            ? e.kind === "parent2"
-              ? { id: e.b, r: B.r }
-              : { id: e.a, r: A.r }
-            : { id: e.b, r: B.r };
-        const prev = meet.get(child.id);
-        if (prev) prev.n += 1;
-        else meet.set(child.id, { x: child.r.cx, y: child.r.top, n: 1 });
+  for (const id of people.keys()) find(id);
+  if (graph) {
+    for (const id of people.keys()) {
+      for (const spouseId of graph.spousesOf.get(id) ?? []) {
+        if (people.has(spouseId)) join(id, spouseId);
       }
     }
-    lines.sort((p, q) => (p.kind === "spouse" ? 0 : 1) - (q.kind === "spouse" ? 0 : 1));
+    const hasSpouseOnTree = (id: string) =>
+      (graph.spousesOf.get(id) ?? []).some((spouseId) => people.has(spouseId));
+    for (const childId of people.keys()) {
+      const parents = (graph.parentsOf.get(childId) ?? []).filter((id) => people.has(id));
+      for (let i = 1; i < parents.length; i++) {
+        if (hasSpouseOnTree(parents[0]) || hasSpouseOnTree(parents[i])) continue;
+        join(parents[0], parents[i]);
+      }
+    }
+  }
 
-    setPaths(lines);
-    setDots(
-      [...meet.values()]
-        .filter((item) => item.n > 1)
-        .map(({ x, y }) => ({ x, y })),
-    );
-  }, [edges]);
+  const groups = new Map<string, PersonDTO[]>();
+  for (const { person } of people.values()) {
+    const key = `${find(person.id)}@${genOf(person.id)}`;
+    const list = groups.get(key) ?? [];
+    list.push(person);
+    groups.set(key, list);
+  }
+
+  for (const members of groups.values()) {
+    const ordered = orderCouple(members);
+    units.push({
+      id: ordered.map((member) => member.id).join("|"),
+      members: ordered,
+      gen: genOf(ordered[0].id),
+      children: [],
+      parentUnits: [],
+      x: 0,
+      y: 0,
+      subtree: 0,
+    });
+  }
+
+  const byId = new Map<string, Unit>();
+  for (const unit of units) {
+    for (const member of unit.members) byId.set(member.id, unit);
+  }
+
+  for (const unit of units) {
+    const parentIds = new Set<string>();
+    for (const member of unit.members) {
+      if (graph) {
+        for (const parentId of graph.parentsOf.get(member.id) ?? []) {
+          parentIds.add(parentId);
+        }
+      }
+    }
+    const parents = [
+      ...new Set(
+        [...parentIds]
+          .map((id) => byId.get(id))
+          .filter((parent): parent is Unit => Boolean(parent) && parent !== unit),
+      ),
+    ];
+    unit.parentUnits = parents;
+  }
+
+  for (const unit of units) {
+    if (unit.parentUnits.length === 0) continue;
+    const female = unit.members.find((member) => member.gender === "female") ?? unit.members[0];
+    const motherParents = graph ? (graph.parentsOf.get(female.id) ?? []) : [];
+    const primary =
+      unit.parentUnits.find((parent) =>
+        parent.members.some((member) => motherParents.includes(member.id)),
+      ) ?? unit.parentUnits[0];
+    if (!primary.children.includes(unit)) primary.children.push(unit);
+  }
+
+  for (const unit of units) {
+    unit.children.sort((a, b) => {
+      const aYear = Math.min(...a.members.map(birthRank));
+      const bYear = Math.min(...b.members.map(birthRank));
+      return aYear - bYear;
+    });
+  }
+
+  return units;
+}
+
+function subtreeWidth(unit: Unit): number {
+  if (unit.subtree) return unit.subtree;
+  const self = unitSpan(unit.members.length);
+  if (unit.children.length === 0) {
+    unit.subtree = self;
+    return self;
+  }
+  const kids =
+    unit.children.reduce((sum, child) => sum + subtreeWidth(child), 0) +
+    UNIT_GAP * (unit.children.length - 1);
+  unit.subtree = Math.max(self, kids);
+  return unit.subtree;
+}
+
+function placeUnit(unit: Unit, left: number, minGen: number) {
+  const width = subtreeWidth(unit);
+  const self = unitSpan(unit.members.length);
+  unit.x = left + (width - self) / 2;
+  unit.y = (unit.gen - minGen) * ROW + PAD;
+  const kids =
+    unit.children.reduce((sum, child) => sum + subtreeWidth(child), 0) +
+    UNIT_GAP * Math.max(0, unit.children.length - 1);
+  let cursor = left + Math.max(0, (width - kids) / 2);
+  for (const child of unit.children) {
+    placeUnit(child, cursor, minGen);
+    cursor += subtreeWidth(child) + UNIT_GAP;
+  }
+}
+
+function unitMidX(unit: Unit): number {
+  const self = unitSpan(unit.members.length);
+  return unit.x + self / 2;
+}
+
+function attachY(unit: Unit): number {
+  return unit.y + BOX_H / 2;
+}
+
+function memberBox(unit: Unit, index: number): { x: number; y: number; cx: number; cy: number } {
+  const x = unit.x + index * (BOX_W + PAIR_GAP);
+  const y = unit.y;
+  return { x, y, cx: x + BOX_W / 2, cy: y + BOX_H / 2 };
+}
+
+function childAnchors(
+  parent: Unit,
+  child: Unit,
+  graph: IndexedGraph | null,
+): { x: number; y: number }[] {
+  const parentIds = new Set(parent.members.map((member) => member.id));
+  const kids = child.members.filter((person) =>
+    (graph?.parentsOf.get(person.id) ?? []).some((id) => parentIds.has(id)),
+  );
+  return kids.map((person) => {
+    const index = child.members.findIndex((member) => member.id === person.id);
+    const box = memberBox(child, Math.max(0, index));
+    return { x: round(box.cx), y: round(box.cy) };
+  });
+}
+
+function parentLines(
+  parent: Unit,
+  children: Unit[],
+  graph: IndexedGraph | null,
+): string[] {
+  if (children.length === 0) return [];
+  const hang = children.flatMap((child) => childAnchors(parent, child, graph));
+  if (hang.length === 0) return [];
+  const stemX = round(unitMidX(parent));
+  const stemY = round(attachY(parent));
+  const childTop = Math.min(...children.map((child) => child.y));
+  if (childTop - (parent.y + BOX_H) < 8) return [];
+  const barY = round(parent.y + BOX_H + (childTop - parent.y - BOX_H) * 0.5);
+  const xs = [stemX, ...hang.map((item) => item.x)].sort((a, b) => a - b);
+  const parts = [`M ${stemX} ${stemY} V ${barY}`];
+  if (xs[xs.length - 1] - xs[0] > 4) {
+    parts.push(`M ${xs[0]} ${barY} H ${xs[xs.length - 1]}`);
+  }
+  for (const child of hang) {
+    parts.push(`M ${child.x} ${barY} V ${child.y}`);
+  }
+  return [parts.join(" ")];
+}
+
+function layoutPeople(
+  people: Map<string, { person: PersonDTO; gen: number }>,
+  graph: IndexedGraph | null,
+  focusId: string,
+): { boxes: Placed[]; lines: Line[]; width: number; height: number } {
+  if (people.size === 0) {
+    return { boxes: [], lines: [], width: BOX_W + PAD * 2, height: BOX_H + PAD * 2 };
+  }
+
+  const units = formUnits(people, graph);
+  const minGen = Math.min(...units.map((unit) => unit.gen));
+  const roots = units.filter((unit) => !units.some((other) => other.children.includes(unit)));
+  const minRootGen = Math.min(...roots.map((unit) => unit.gen));
+  const mainRoots = roots
+    .filter((unit) => unit.gen === minRootGen)
+    .sort((a, b) => a.members[0].firstName.localeCompare(b.members[0].firstName, "ru"));
+  const extraRoots = roots.filter((unit) => unit.gen !== minRootGen);
+
+  let cursor = PAD;
+  for (const root of mainRoots) {
+    placeUnit(root, cursor, minGen);
+    cursor += subtreeWidth(root) + UNIT_GAP * 1.4;
+  }
+
+  for (const extra of extraRoots) {
+    extra.y = (extra.gen - minGen) * ROW + PAD;
+    extra.subtree = unitSpan(extra.members.length);
+    const child = units.find((unit) => unit.parentUnits.includes(extra));
+    const primary = child?.parentUnits.find((parent) => parent.children.includes(child));
+    if (primary && primary !== extra) {
+      extra.x = primary.x - extra.subtree - UNIT_GAP * 1.4;
+    } else if (child) {
+      extra.x = child.x - extra.subtree - UNIT_GAP * 1.4;
+    } else {
+      extra.x = cursor;
+      cursor += extra.subtree + UNIT_GAP;
+    }
+  }
+
+  const boxes: Placed[] = [];
+  const rawLines: Line[] = [];
+
+  for (const unit of units) {
+    unit.members.forEach((person, index) => {
+      const box = memberBox(unit, index);
+      boxes.push({
+        person,
+        x: box.x,
+        y: box.y,
+        current: person.id === focusId,
+      });
+    });
+
+    if (unit.members.length >= 2) {
+      for (let i = 0; i < unit.members.length - 1; i++) {
+        const left = memberBox(unit, i);
+        const right = memberBox(unit, i + 1);
+        const y = round((left.cy + right.cy) / 2);
+        rawLines.push({
+          d: `M ${round(left.cx)} ${y} H ${round(right.cx)}`,
+          kind: "spouse",
+        });
+      }
+    }
+  }
+
+  for (const unit of units) {
+    const kids = units.filter((child) => child.parentUnits.includes(unit));
+    for (const d of parentLines(unit, kids, graph)) {
+      rawLines.push({ d, kind: "parent" });
+    }
+  }
+
+  const minX = Math.min(...boxes.map((box) => box.x), PAD);
+  const shift = PAD - minX;
+  for (const box of boxes) box.x += shift;
+  const lines = rawLines.map((line) => ({
+    ...line,
+    d: shiftPathX(line.d, shift),
+  }));
+
+  const width = Math.max(...boxes.map((box) => box.x + BOX_W)) + PAD;
+  const height = Math.max(...boxes.map((box) => box.y + BOX_H)) + PAD;
+
+  return { boxes, lines, width, height };
+}
+
+function shiftPathX(d: string, shift: number): string {
+  return d.replace(/([MH])\s*(-?\d+(?:\.\d+)?)/g, (_, cmd: string, num: string) => {
+    return `${cmd} ${round(Number(num) + shift)}`;
+  });
+}
+
+function EchoTree({
+  people,
+  graph,
+  focusId,
+  doubledById,
+}: {
+  people: Map<string, { person: PersonDTO; gen: number }>;
+  graph: IndexedGraph | null;
+  focusId: string;
+  doubledById?: Record<string, number>;
+}) {
+  const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const layout = useMemo(
+    () => layoutPeople(people, graph, focusId),
+    [people, graph, focusId],
+  );
 
   useLayoutEffect(() => {
-    compute();
-  }, [compute]);
-
-  useEffect(() => {
-    const box = containerRef.current;
-    if (!box) return;
-    const ro = new ResizeObserver(() => compute());
-    ro.observe(box);
-    window.addEventListener("resize", compute);
-    void document.fonts?.ready.then(() => compute());
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", compute);
-    };
-  }, [compute]);
+    const current = scrollRef.current?.querySelector(".tree-node-current");
+        current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [layout]);
 
   return (
-    <RegisterCtx.Provider value={register}>
-      <StructuralCtx.Provider value={structuralIds}>
-        <div ref={containerRef} className="tree-canvas">
-          <svg className="tree-lines" aria-hidden="true">
-            {paths.map((p, i) => (
-              <path
-                key={`p${i}`}
-                d={p.d}
-                className={
-                  p.kind === "spouse" ? "tree-line tree-line--spouse" : "tree-line"
-                }
-              />
-            ))}
-            {dots.map((d, i) => (
-              <circle key={`d${i}`} cx={d.x} cy={d.y} r={3.5} className="tree-junction" />
-            ))}
-          </svg>
-          <div className="tree-flow">{children}</div>
-        </div>
-      </StructuralCtx.Provider>
-    </RegisterCtx.Provider>
-  );
-}
-
-function TreeCard({
-  person,
-  current,
-  doubledById,
-  registerId,
-}: {
-  person: PersonDTO;
-  current?: boolean;
-  doubledById?: Record<string, number>;
-  registerId?: string;
-}) {
-  const register = useContext(RegisterCtx);
-  const years = personYears(person);
-  const pathCount = doubledById?.[person.id];
-  return (
-    <Link
-      ref={(node) => {
-        if (registerId) register?.(registerId, node);
-      }}
-      href={`/people/${person.id}`}
-      className={`tree-card ${current ? "tree-card-current" : ""} ${
-        person.gender === "male" ? "tree-card-male" : "tree-card-female"
-      }`}
-    >
-      <span className="block font-medium leading-snug">{person.firstName}</span>
-      {person.lastName ? (
-        <span className="block text-xs text-[var(--muted)]">{person.lastName}</span>
-      ) : null}
-      {years ? <span className="block text-xs text-[var(--muted)]">{years}</span> : null}
-      {pathCount && pathCount > 1 ? (
-        <span className="mt-1 inline-block rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.65rem] font-semibold text-[var(--accent)]">
-          ×{pathCount}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
-
-function Couple({
-  person,
-  spouses,
-  current,
-  doubledById,
-}: {
-  person: PersonDTO;
-  spouses: PersonDTO[];
-  current?: boolean;
-  doubledById?: Record<string, number>;
-}) {
-  const structuralIds = useContext(StructuralCtx);
-  const inlineSpouses = spouses.filter((spouse) => !structuralIds.has(spouse.id));
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-1">
-      <TreeCard
-        person={person}
-        current={current}
-        doubledById={doubledById}
-        registerId={person.id}
-      />
-      {inlineSpouses.map((spouse) => (
-        <span key={spouse.id} className="flex items-center gap-1">
-          <span className="text-[var(--muted)]">—</span>
-          <TreeCard person={spouse} doubledById={doubledById} />
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function AncestorBranch({
-  node,
-  doubledById,
-}: {
-  node: AncestorNode | null;
-  doubledById?: Record<string, number>;
-}) {
-  if (!node) return null;
-  const hasParents = node.father || node.mother;
-  return (
-    <div className="flex flex-col items-center">
-      {hasParents ? (
-        <div className="flex items-end justify-center gap-4">
-          <AncestorBranch node={node.father} doubledById={doubledById} />
-          <AncestorBranch node={node.mother} doubledById={doubledById} />
-        </div>
-      ) : null}
-      <div className={hasParents ? "pt-10" : undefined}>
-        <TreeCard
-          person={node.person}
-          doubledById={doubledById}
-          registerId={node.person.id}
-        />
+    <div ref={scrollRef} className="tree-scroll">
+      <div className="tree-echo" style={{ width: layout.width, height: layout.height }}>
+        <svg className="tree-lines" aria-hidden="true">
+          {layout.lines.map((line, index) => (
+            <path
+              key={`${line.kind}-${index}`}
+              d={line.d}
+              className={
+                line.kind === "spouse" ? "tree-line tree-line--spouse" : "tree-line"
+              }
+            />
+          ))}
+        </svg>
+        {layout.boxes.map((box) => {
+          const years = personYears(box.person);
+          const pathCount = doubledById?.[box.person.id];
+          const caption = [box.person.firstName, box.person.lastName, years]
+            .filter(Boolean)
+            .join(" ");
+          return (
+            <Link
+              key={box.person.id}
+              href={`/people/${box.person.id}`}
+              aria-label={caption}
+              className={`tree-node ${
+                box.person.gender === "male" ? "tree-node-male" : "tree-node-female"
+              } ${box.current ? "tree-node-current" : ""}`}
+              style={{ left: box.x, top: box.y }}
+              onClick={(event) => {
+                event.preventDefault();
+                router.push(`/people/${box.person.id}`);
+              }}
+            >
+              <span className="tree-node-name">{box.person.firstName}</span>
+              {pathCount && pathCount > 1 ? (
+                <span className="tree-node-mark">×{pathCount}</span>
+              ) : null}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function DescentList({
-  nodes,
-  currentId,
-  doubledById,
-}: {
-  nodes: DescentNode[];
-  currentId: string;
-  doubledById?: Record<string, number>;
-}) {
-  if (nodes.length === 0) return null;
-  return (
-    <ul>
-      {nodes.map((node) => (
-        <li key={node.person.id}>
-          <Couple
-            person={node.person}
-            spouses={node.spouses}
-            current={node.person.id === currentId}
-            doubledById={doubledById}
-          />
-          <DescentList
-            nodes={node.children}
-            currentId={currentId}
-            doubledById={doubledById}
-          />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export function LineageTree({
   tree,
+  graph,
   doubledById,
 }: {
   tree: PersonTree;
+  graph?: KinGraph;
   doubledById?: Record<string, number>;
 }) {
-  const structuralIds = useMemo(
-    () =>
-      collectStructuralIds({
-        ancestors: tree.ancestors,
-        descentRoot: tree.descendants,
-        extra: tree.siblings.map((sibling) => sibling.id),
-      }),
-    [tree],
+  const indexed = useMemo(() => (graph ? indexGraph(graph) : null), [graph]);
+  const people = useMemo(
+    () => peopleFromLineage(tree, indexed),
+    [tree, indexed],
   );
-  const edges = useMemo(
-    () =>
-      collectEdges({
-        ancestors: tree.ancestors,
-        descentRoot: tree.descendants,
-        structuralIds,
-      }),
-    [tree, structuralIds],
-  );
-  const hasAncestors = Boolean(tree.ancestors.father || tree.ancestors.mother);
-  const hasDescendants = tree.descendants.children.length > 0;
-
   return (
-    <div className="-mx-4 overflow-x-auto px-4 pb-2">
-      <TreeCanvas edges={edges} structuralIds={structuralIds}>
-        <div className="inline-flex min-w-full flex-col items-center py-2">
-          {hasAncestors ? (
-            <div className="flex items-end justify-center gap-6">
-              <AncestorBranch node={tree.ancestors.father} doubledById={doubledById} />
-              <AncestorBranch node={tree.ancestors.mother} doubledById={doubledById} />
-            </div>
-          ) : null}
-
-          <div
-            className={`flex flex-wrap items-center justify-center gap-2 ${
-              hasAncestors ? "pt-10" : ""
-            }`}
-          >
-            {tree.siblings.map((sibling) => (
-              <TreeCard
-                key={sibling.id}
-                person={sibling}
-                doubledById={doubledById}
-                registerId={sibling.id}
-              />
-            ))}
-            <Couple
-              person={tree.person}
-              spouses={tree.descendants.spouses}
-              current
-              doubledById={doubledById}
-            />
-          </div>
-
-          {hasDescendants ? (
-            <div className="tree-flow-descent">
-              <DescentList
-                nodes={tree.descendants.children}
-                currentId={tree.person.id}
-                doubledById={doubledById}
-              />
-            </div>
-          ) : null}
-        </div>
-      </TreeCanvas>
-    </div>
+    <EchoTree
+      people={people}
+      graph={indexed}
+      focusId={tree.person.id}
+      doubledById={doubledById}
+    />
   );
 }
 
 export function ClanTreeView({
   tree,
+  graph,
   doubledById,
 }: {
   tree: ClanTree;
+  graph?: KinGraph;
   doubledById?: Record<string, number>;
 }) {
-  const structuralIds = useMemo(
-    () => collectStructuralIds({ descentRoot: tree.root }),
-    [tree],
-  );
-  const edges = useMemo(
-    () => collectEdges({ descentRoot: tree.root, structuralIds }),
-    [tree, structuralIds],
-  );
-
+  const indexed = useMemo(() => (graph ? indexGraph(graph) : null), [graph]);
+  const people = useMemo(() => peopleFromClan(tree), [tree]);
   return (
-    <div className="-mx-4 overflow-x-auto px-4 pb-2">
-      <TreeCanvas edges={edges} structuralIds={structuralIds}>
-        <div className="flex flex-col items-center py-2">
-          <Couple
-            person={tree.root.person}
-            spouses={tree.root.spouses}
-            current={tree.root.person.id === tree.focus.id}
-            doubledById={doubledById}
-          />
-          {tree.root.children.length > 0 ? (
-            <div className="tree-flow-descent">
-              <DescentList
-                nodes={tree.root.children}
-                currentId={tree.focus.id}
-                doubledById={doubledById}
-              />
-            </div>
-          ) : null}
-        </div>
-      </TreeCanvas>
-    </div>
+    <EchoTree
+      people={people}
+      graph={indexed}
+      focusId={tree.focus.id}
+      doubledById={doubledById}
+    />
   );
 }

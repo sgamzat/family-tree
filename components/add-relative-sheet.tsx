@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PersonFields, emptyPersonForm } from "@/components/person-fields";
+import { Sheet } from "@/components/sheet";
 import { SuggestionList } from "@/components/suggestion-list";
 import { api } from "@/lib/api";
 import {
@@ -146,40 +147,27 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
   }
 
   return (
-    <div className="fixed inset-0 z-20 bg-black/40" onClick={onClose}>
-      <div
-        className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-auto rounded-t-2xl bg-[var(--paper)] p-4 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mx-auto max-w-2xl">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <h2 className="text-lg font-semibold">{relationTitle(role)}</h2>
-            <button type="button" className="text-sm text-[var(--muted)]" onClick={onClose}>
-              Закрыть
-            </button>
-          </div>
-          {hint ? (
-            <p className="mb-4 text-sm leading-5 text-[var(--muted)]">{hint}</p>
-          ) : null}
-          <PersonFields value={form} onChange={changeForm} lockGender={genderLocked} />
-          <div className="mt-4 grid gap-3">
-            <SuggestionList hits={hits} loading={loading} onPick={(hit) => linkExisting(hit.id)} />
-            {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-            <button
-              type="button"
-              className="btn-primary"
-              disabled={saving}
-              onClick={createAndLink}
-            >
-              {hits.length > 0
-                ? "Это другой человек — создать нового"
-                : saving
-                  ? "Сохраняем…"
-                  : "Создать и связать"}
-            </button>
-          </div>
-        </div>
+    <Sheet title={relationTitle(role)} onClose={onClose}>
+      {hint ? (
+        <p className="mb-4 text-sm leading-5 text-[var(--muted)]">{hint}</p>
+      ) : null}
+      <PersonFields value={form} onChange={changeForm} lockGender={genderLocked} />
+      <div className="mt-4 grid gap-3">
+        <SuggestionList hits={hits} loading={loading} onPick={(hit) => linkExisting(hit.id)} />
+        {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={saving}
+          onClick={createAndLink}
+        >
+          {hits.length > 0
+            ? "Это другой человек — создать нового"
+            : saving
+              ? "Сохраняем…"
+              : "Создать и связать"}
+        </button>
       </div>
-    </div>
+    </Sheet>
   );
 }
