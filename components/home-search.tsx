@@ -101,9 +101,8 @@ export function HomeSearch({ recent }: { recent: PersonDTO[] }) {
       {!showList && recent.length === 0 ? (
         <div className="grid gap-3 rounded-xl border border-dashed border-[var(--line-strong)] bg-[var(--slot)] px-4 py-5">
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Пока никого нет. Добавьте первого человека — себя или старшего в роду. Когда
-            односельчане будут вводить то же ФИО, приложение предложит выбрать уже
-            существующую карточку.
+            Пока никого нет. Добавьте себя, затем отца, мать и дедов. Когда кто-то
+            введёт того же человека, выберите его карточку — семьи сойдутся.
           </p>
           <Link href="/people/new" className="btn-primary text-center">
             Добавить первого человека

@@ -17,7 +17,9 @@ export function SuggestionList({ hits, loading, onPick }: Props) {
 
   return (
     <div className="grid gap-2">
-      <p className="text-sm font-medium">Такое ФИО уже есть. Это тот же человек?</p>
+      <p className="text-sm font-medium">
+        Такое ФИО уже есть. Если это тот же человек, семьи сойдутся в одну карточку.
+      </p>
       {hits.map((hit) => {
         const details = searchHitCaption(hit);
         return (

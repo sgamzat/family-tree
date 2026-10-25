@@ -190,7 +190,7 @@ export function TreeWorkspace({
 
       {doubledAncestors.length > 0 ? (
         <p className="echo-note">
-          Предок входит несколькими путями:{" "}
+          Общий предок. Линии к нему идут отдельно и не сливаются:{" "}
           {doubledAncestors.map((item, index) => (
             <span key={item.person.id}>
               {index > 0 ? ", " : ""}

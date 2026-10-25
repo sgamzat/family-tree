@@ -33,6 +33,12 @@ type Unit = {
   x: number;
   y: number;
   subtree: number;
+  /** У супругов разные родители на схеме: каждый стоит под своей парой. */
+  splitParents?: boolean;
+  /** Место одного супруга в ряду братьев и сестёр. Карточка рисуется у пары. */
+  seat?: boolean;
+  placed?: boolean;
+  offsets?: number[];
 };
 
 function round(value: number): number {
@@ -41,6 +47,27 @@ function round(value: number): number {
 
 function unitSpan(count: number): number {
   return count * BOX_W + Math.max(0, count - 1) * PAIR_GAP;
+}
+
+function nearestFreeX(
+  preferred: number,
+  width: number,
+  y: number,
+  units: Unit[],
+  self: Unit,
+): number {
+  const clear = (x: number) =>
+    units.every((other) => {
+      if (other === self || Math.abs(other.y - y) > 1) return true;
+      const otherWidth = unitSpan(other.members.length);
+      return x + width + UNIT_GAP <= other.x || other.x + otherWidth + UNIT_GAP <= x;
+    });
+  if (clear(preferred)) return preferred;
+  for (let step = 8; step <= 2400; step += 8) {
+    if (clear(preferred + step)) return preferred + step;
+    if (clear(preferred - step)) return preferred - step;
+  }
+  return preferred;
 }
 
 function orderCouple(people: PersonDTO[]): PersonDTO[] {
@@ -214,6 +241,29 @@ function formUnits(
 
   for (const unit of units) {
     if (unit.parentUnits.length === 0) continue;
+    const homes = unit.members.map((member) => parentUnitOf(member, unit, units, graph));
+    const distinct = new Set(homes.filter((parent): parent is Unit => Boolean(parent)));
+    if (distinct.size >= 2 && unit.gen >= 0) {
+      unit.splitParents = true;
+      for (const member of unit.members) {
+        const home = parentUnitOf(member, unit, units, graph);
+        if (!home) continue;
+        const seat: Unit = {
+          id: `seat:${member.id}`,
+          members: [member],
+          gen: unit.gen,
+          children: [],
+          parentUnits: [home],
+          x: 0,
+          y: 0,
+          subtree: 0,
+          seat: true,
+        };
+        home.children.push(seat);
+        units.push(seat);
+      }
+      continue;
+    }
     const female = unit.members.find((member) => member.gender === "female") ?? unit.members[0];
     const motherParents = graph ? (graph.parentsOf.get(female.id) ?? []) : [];
     const primary =
@@ -253,6 +303,7 @@ function placeUnit(unit: Unit, left: number, minGen: number) {
   const self = unitSpan(unit.members.length);
   unit.x = left + (width - self) / 2;
   unit.y = (unit.gen - minGen) * ROW + PAD;
+  unit.placed = true;
   const kids =
     unit.children.reduce((sum, child) => sum + subtreeWidth(child), 0) +
     UNIT_GAP * Math.max(0, unit.children.length - 1);
@@ -263,7 +314,26 @@ function placeUnit(unit: Unit, left: number, minGen: number) {
   }
 }
 
+function parentUnitOf(
+  member: PersonDTO,
+  couple: Unit,
+  units: Unit[],
+  graph: IndexedGraph | null,
+): Unit | null {
+  const ids = new Set(graph?.parentsOf.get(member.id) ?? []);
+  return (
+    units.find(
+      (unit) => unit !== couple && unit.members.some((person) => ids.has(person.id)),
+    ) ?? null
+  );
+}
+
 function unitMidX(unit: Unit): number {
+  if (unit.offsets?.length) {
+    const first = memberBox(unit, 0);
+    const last = memberBox(unit, unit.offsets.length - 1);
+    return (first.cx + last.cx) / 2;
+  }
   const self = unitSpan(unit.members.length);
   return unit.x + self / 2;
 }
@@ -273,9 +343,86 @@ function attachY(unit: Unit): number {
 }
 
 function memberBox(unit: Unit, index: number): { x: number; y: number; cx: number; cy: number } {
-  const x = unit.x + index * (BOX_W + PAIR_GAP);
+  const x = unit.x + (unit.offsets?.[index] ?? index * (BOX_W + PAIR_GAP));
   const y = unit.y;
   return { x, y, cx: x + BOX_W / 2, cy: y + BOX_H / 2 };
+}
+
+function placeSplitCouple(
+  unit: Unit,
+  units: Unit[],
+  graph: IndexedGraph | null,
+  minGen: number,
+) {
+  const seated = unit.members
+    .map((member) => ({
+      member,
+      parent: parentUnitOf(member, unit, units, graph),
+      seat: units.find((item) => item.seat && item.id === `seat:${member.id}`),
+    }))
+    .sort((a, b) => {
+      const ax = a.seat?.placed
+        ? a.seat.x + BOX_W / 2
+        : a.parent
+          ? unitMidX(a.parent)
+          : Number.POSITIVE_INFINITY;
+      const bx = b.seat?.placed
+        ? b.seat.x + BOX_W / 2
+        : b.parent
+          ? unitMidX(b.parent)
+          : Number.POSITIVE_INFINITY;
+      if (ax !== bx) return ax - bx;
+      if (a.member.gender === "female") return -1;
+      if (b.member.gender === "female") return 1;
+      return 0;
+    });
+  unit.members = seated.map((item) => item.member);
+  const centers = seated.map((item) =>
+    item.seat?.placed ? item.seat.x + BOX_W / 2 : item.parent ? unitMidX(item.parent) : 0,
+  );
+  if (seated.some((item) => !item.seat?.placed)) {
+    for (let index = 1; index < centers.length; index++) {
+      const min = centers[index - 1] + BOX_W + PAIR_GAP;
+      if (centers[index] < min) centers[index] = min;
+    }
+  }
+  unit.x = centers[0] - BOX_W / 2;
+  unit.y = (unit.gen - minGen) * ROW + PAD;
+  unit.placed = true;
+  unit.offsets = centers.map((center) => center - BOX_W / 2 - unit.x);
+  seated.forEach((item, index) => {
+    if (!item.seat) return;
+    item.seat.x = centers[index] - BOX_W / 2;
+    item.seat.y = unit.y;
+    item.seat.placed = true;
+  });
+
+  const childSeats = units
+    .filter((item) => item.seat && item.parentUnits.includes(unit) && !item.placed)
+    .sort((a, b) => birthRank(a.members[0]) - birthRank(b.members[0]));
+  if (childSeats.length > 0) {
+    const total =
+      childSeats.length * BOX_W + UNIT_GAP * Math.max(0, childSeats.length - 1);
+    let seatCursor = unitMidX(unit) - total / 2;
+    for (const seat of childSeats) {
+      seat.x = seatCursor;
+      seat.y = (seat.gen - minGen) * ROW + PAD;
+      seat.placed = true;
+      seat.subtree = BOX_W;
+      seatCursor += BOX_W + UNIT_GAP;
+    }
+  }
+
+  const childUnits = unit.children.filter((child) => !child.splitParents);
+  if (childUnits.length === 0) return;
+  const kids =
+    childUnits.reduce((sum, child) => sum + subtreeWidth(child), 0) +
+    UNIT_GAP * Math.max(0, childUnits.length - 1);
+  let cursor = unitMidX(unit) - kids / 2;
+  for (const child of childUnits) {
+    placeUnit(child, cursor, minGen);
+    cursor += subtreeWidth(child) + UNIT_GAP;
+  }
 }
 
 function childAnchors(
@@ -294,28 +441,27 @@ function childAnchors(
   });
 }
 
-function parentLines(
+/** Как на общей схеме: ствол из середины брака, перекладина, спуск к каждому ребёнку. */
+function familyTee(
   parent: Unit,
   children: Unit[],
   graph: IndexedGraph | null,
-): string[] {
-  if (children.length === 0) return [];
+): string | null {
   const hang = children.flatMap((child) => childAnchors(parent, child, graph));
-  if (hang.length === 0) return [];
+  if (hang.length === 0) return null;
   const stemX = round(unitMidX(parent));
   const stemY = round(attachY(parent));
   const childTop = Math.min(...children.map((child) => child.y));
-  if (childTop - (parent.y + BOX_H) < 8) return [];
-  const barY = round(parent.y + BOX_H + (childTop - parent.y - BOX_H) * 0.5);
-  const xs = [stemX, ...hang.map((item) => item.x)].sort((a, b) => a - b);
+  const parentBottom = parent.y + BOX_H;
+  if (childTop - parentBottom < 8) return null;
+  const barY = round(parentBottom + (childTop - parentBottom) * 0.45);
+  const xs = [stemX, ...hang.map((item) => item.x)];
+  const left = Math.min(...xs);
+  const right = Math.max(...xs);
   const parts = [`M ${stemX} ${stemY} V ${barY}`];
-  if (xs[xs.length - 1] - xs[0] > 4) {
-    parts.push(`M ${xs[0]} ${barY} H ${xs[xs.length - 1]}`);
-  }
-  for (const child of hang) {
-    parts.push(`M ${child.x} ${barY} V ${child.y}`);
-  }
-  return [parts.join(" ")];
+  if (right - left > 4) parts.push(`M ${round(left)} ${barY} H ${round(right)}`);
+  for (const child of hang) parts.push(`M ${child.x} ${barY} V ${child.y}`);
+  return parts.join(" ");
 }
 
 function layoutPeople(
@@ -329,7 +475,9 @@ function layoutPeople(
 
   const units = formUnits(people, graph);
   const minGen = Math.min(...units.map((unit) => unit.gen));
-  const roots = units.filter((unit) => !units.some((other) => other.children.includes(unit)));
+  const roots = units.filter(
+    (unit) => !unit.splitParents && !units.some((other) => other.children.includes(unit)),
+  );
   const minRootGen = Math.min(...roots.map((unit) => unit.gen));
   const mainRoots = roots
     .filter((unit) => unit.gen === minRootGen)
@@ -344,23 +492,43 @@ function layoutPeople(
 
   for (const extra of extraRoots) {
     extra.y = (extra.gen - minGen) * ROW + PAD;
-    extra.subtree = unitSpan(extra.members.length);
-    const child = units.find((unit) => unit.parentUnits.includes(extra));
-    const primary = child?.parentUnits.find((parent) => parent.children.includes(child));
-    if (primary && primary !== extra) {
-      extra.x = primary.x - extra.subtree - UNIT_GAP * 1.4;
-    } else if (child) {
-      extra.x = child.x - extra.subtree - UNIT_GAP * 1.4;
+    const width = unitSpan(extra.members.length);
+    extra.subtree = width;
+    const child = units.find(
+      (unit) => unit.parentUnits.includes(extra) && !extra.children.includes(unit),
+    );
+    const anchor = child ? childAnchors(extra, child, graph)[0] : undefined;
+    if (anchor) {
+      extra.x = nearestFreeX(anchor.x - width / 2, width, extra.y, units, extra);
     } else {
       extra.x = cursor;
-      cursor += extra.subtree + UNIT_GAP;
+      cursor += width + UNIT_GAP;
     }
+  }
+
+  for (const unit of units) {
+    if (unit.children.length > 0) continue;
+    const kids = units.filter(
+      (child) => child.parentUnits.includes(unit) && child.gen > unit.gen,
+    );
+    if (kids.length !== 1 || kids[0].splitParents) continue;
+    const anchor = childAnchors(unit, kids[0], graph)[0];
+    if (!anchor) continue;
+    const width = unitSpan(unit.members.length);
+    unit.x = nearestFreeX(anchor.x - width / 2, width, unit.y, units, unit);
+  }
+
+  for (const unit of units
+    .filter((item) => item.splitParents)
+    .sort((a, b) => a.gen - b.gen)) {
+    placeSplitCouple(unit, units, graph, minGen);
   }
 
   const boxes: Placed[] = [];
   const rawLines: Line[] = [];
 
   for (const unit of units) {
+    if (unit.seat) continue;
     unit.members.forEach((person, index) => {
       const box = memberBox(unit, index);
       boxes.push({
@@ -385,10 +553,9 @@ function layoutPeople(
   }
 
   for (const unit of units) {
-    const kids = units.filter((child) => child.parentUnits.includes(unit));
-    for (const d of parentLines(unit, kids, graph)) {
-      rawLines.push({ d, kind: "parent" });
-    }
+    const kids = units.filter((child) => child.parentUnits.includes(unit) && !child.splitParents);
+    const tee = familyTee(unit, kids, graph);
+    if (tee) rawLines.push({ d: tee, kind: "parent" });
   }
 
   const minX = Math.min(...boxes.map((box) => box.x), PAD);
