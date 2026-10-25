@@ -449,27 +449,50 @@ body:has(.echo-page) .page-main {
   flex-direction: column;
 }
 
-.echo-toolbar,
-.echo-depths {
+.echo-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   padding: 0.55rem 0.75rem 0;
 }
 
+.echo-depths {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-top: 0.45rem;
+}
+
+.echo-depth-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0.1rem 0.75rem 0.15rem;
+  scrollbar-width: none;
+}
+
+.echo-depth-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .echo-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   gap: 0.35rem;
 }
 
 .echo-chip {
+  flex: 0 0 auto;
   min-height: 2rem;
   border-radius: 999px;
   background: white;
   padding: 0.2rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 500;
+  white-space: nowrap;
   box-shadow: 0 0 0 1px var(--line);
 }
 
@@ -487,6 +510,7 @@ body:has(.echo-page) .page-main {
 
 .echo-caption {
   width: 100%;
+  padding-inline: 0.75rem;
   color: var(--muted);
   font-size: 0.75rem;
 }

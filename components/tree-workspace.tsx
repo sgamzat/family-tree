@@ -338,7 +338,7 @@ export function TreeWorkspace({
         </div>
 
         {mode === "line" ? (
-          <div className="echo-depths">
+          <div className="echo-depth-scroll">
             <DepthChips
               options={UP_DEPTHS}
               value={up}
@@ -357,13 +357,15 @@ export function TreeWorkspace({
         ) : (
           <div className="echo-depths">
             {clanTree ? <p className="echo-caption">{clanCaption(clanTree)}</p> : null}
-            <DepthChips
-              options={DOWN_DEPTHS}
-              value={clanDown}
-              max={clanDownMax}
-              allLabel="Весь род"
-              onChange={setClanDown}
-            />
+            <div className="echo-depth-scroll">
+              <DepthChips
+                options={DOWN_DEPTHS}
+                value={clanDown}
+                max={clanDownMax}
+                allLabel="Весь род"
+                onChange={setClanDown}
+              />
+            </div>
           </div>
         )}
 
