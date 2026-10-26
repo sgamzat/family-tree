@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { SignOutButton } from "@/components/sign-out-button";
+import { currentUser } from "@/lib/auth";
 
-export function Header() {
+export async function Header() {
+  const user = await currentUser();
+
   return (
     <header className="site-header">
       <div className="site-header-inner">
@@ -9,6 +13,15 @@ export function Header() {
         </Link>
         <nav className="site-nav">
           <Link href="/kinship">Родство</Link>
+          {user?.role === "admin" ? <Link href="/admin">Админка</Link> : null}
+          {user ? (
+            <>
+              <span className="site-nav-name">{user.name}</span>
+              <SignOutButton />
+            </>
+          ) : (
+            <Link href="/login">Войти</Link>
+          )}
         </nav>
       </div>
     </header>

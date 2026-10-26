@@ -1,3 +1,4 @@
+import { requireKeeper, requireWriter } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { getFamily, updatePerson, deletePerson } from "@/lib/people";
 import { parsePersonInput } from "@/lib/names";
@@ -23,6 +24,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireWriter();
     const { id } = await context.params;
     const body = (await request.json()) as Record<string, unknown>;
     const family = await updatePerson(id, parsePersonInput(body));
@@ -37,6 +39,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireKeeper();
     const { id } = await context.params;
     await deletePerson(id);
     return Response.json({ ok: true });

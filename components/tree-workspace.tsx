@@ -71,14 +71,16 @@ function RelationRow({
   person: PersonDTO;
   action: string;
   busy: boolean;
-  onUnlink: () => void;
+  onUnlink?: () => void;
 }) {
   return (
     <div className="echo-rel">
       <Link href={`/people/${person.id}`}>{formatFio(person) || person.firstName}</Link>
-      <button type="button" className="unlink" disabled={busy} onClick={onUnlink}>
-        {action}
-      </button>
+      {onUnlink ? (
+        <button type="button" className="unlink" disabled={busy} onClick={onUnlink}>
+          {action}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -88,11 +90,13 @@ export function TreeWorkspace({
   graph,
   doubledById,
   doubledAncestors,
+  keeper = false,
 }: {
   family: FamilyDTO;
   graph: KinGraph;
   doubledById?: Record<string, number>;
   doubledAncestors: DoubledAncestor[];
+  keeper?: boolean;
 }) {
   const router = useRouter();
   const personId = family.person.id;
@@ -254,7 +258,7 @@ export function TreeWorkspace({
             person={family.father}
             action="Отвязать отца"
             busy={busyId === family.father.id}
-            onUnlink={() => unlink("father", family.father!)}
+            onUnlink={keeper ? () => unlink("father", family.father!) : undefined}
           />
         ) : null}
         {family.mother ? (
@@ -262,7 +266,7 @@ export function TreeWorkspace({
             person={family.mother}
             action="Отвязать мать"
             busy={busyId === family.mother.id}
-            onUnlink={() => unlink("mother", family.mother!)}
+            onUnlink={keeper ? () => unlink("mother", family.mother!) : undefined}
           />
         ) : null}
         {family.spouses.map((spouse) => (
@@ -271,7 +275,7 @@ export function TreeWorkspace({
             person={spouse}
             action="Отвязать супруга"
             busy={busyId === spouse.id}
-            onUnlink={() => unlink("spouse", spouse)}
+            onUnlink={keeper ? () => unlink("spouse", spouse) : undefined}
           />
         ))}
         {family.children.map((child) => (
@@ -280,7 +284,7 @@ export function TreeWorkspace({
             person={child}
             action="Отвязать ребёнка"
             busy={busyId === child.id}
-            onUnlink={() => unlink("child", child)}
+            onUnlink={keeper ? () => unlink("child", child) : undefined}
           />
         ))}
         {family.siblings.map((person) => (
@@ -293,7 +297,7 @@ export function TreeWorkspace({
 
       <div className="echo-more">
         <Link href={`/kinship?from=${personId}`}>Кем приходится</Link>
-        <Link href="/duplicates">Вероятные дубли</Link>
+        {keeper ? <Link href="/duplicates">Вероятные дубли</Link> : null}
       </div>
     </aside>
   );
@@ -407,6 +411,7 @@ export function TreeWorkspace({
         <EditPersonSheet
           person={family.person}
           foundedClans={family.foundedClans}
+          keeper={keeper}
           onClose={() => setEditing(false)}
         />
       ) : null}

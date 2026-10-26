@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { PersonTile } from "@/components/person-tile";
-import { formatFio, type PersonDTO } from "@/lib/names";
+import { formatFio } from "@/lib/names";
 import { scrollFieldBelowHeader, useDropdownMax } from "@/lib/use-dropdown-max";
 import { usePersonSearch } from "@/lib/use-person-search";
 
-export function HomeSearch({ recent }: { recent: PersonDTO[] }) {
+export function HomeSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,10 +33,10 @@ export function HomeSearch({ recent }: { recent: PersonDTO[] }) {
     <div className="grid gap-4">
       <div className="picker">
         <label className="grid gap-2">
-          <span className="text-sm text-[var(--muted)]">Найдите себя или родственника</span>
+          <span className="sr-only">Найдите себя или родственника</span>
           <input
             ref={inputRef}
-            className="field text-lg"
+            className="field home-field"
             type="text"
             inputMode="search"
             enterKeyHint="search"
@@ -57,7 +57,7 @@ export function HomeSearch({ recent }: { recent: PersonDTO[] }) {
               event.preventDefault();
               if (hits[0]) router.push(`/people/${hits[0].id}`);
             }}
-            placeholder="Фамилия имя отчество"
+            placeholder="Имя или имя отца"
           />
         </label>
         {showList ? (
@@ -87,33 +87,9 @@ export function HomeSearch({ recent }: { recent: PersonDTO[] }) {
         ) : null}
       </div>
 
-      <Link href="/census" className="home-census">
-        <span>Перепись населения 1886 года</span>
-        <span aria-hidden="true">→</span>
+      <Link href="/census" className="home-census-link">
+        Перепись населения 1886 года
       </Link>
-
-      {!showList && recent.length > 0 ? (
-        <section className="grid gap-2">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
-            Недавно добавленные
-          </h2>
-          {recent.map((person) => (
-            <PersonTile key={person.id} person={person} href={`/people/${person.id}`} />
-          ))}
-        </section>
-      ) : null}
-
-      {!showList && recent.length === 0 ? (
-        <div className="grid gap-3 rounded-xl border border-dashed border-[var(--line-strong)] bg-[var(--slot)] px-4 py-5">
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Пока никого нет. Добавьте себя, затем отца, мать и дедов. Когда кто-то
-            введёт того же человека, выберите его карточку — семьи сойдутся.
-          </p>
-          <Link href="/people/new" className="btn-primary text-center">
-            Добавить первого человека
-          </Link>
-        </div>
-      ) : null}
     </div>
   );
 }

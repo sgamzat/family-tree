@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { currentUser } from "@/lib/auth";
 
-export function Footer() {
+export async function Footer() {
+  const user = await currentUser();
+  if (user?.role !== "admin") return null;
+
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">

@@ -1,3 +1,4 @@
+import { requireWriter } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { createClan, listClans } from "@/lib/clan";
 
@@ -14,6 +15,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireWriter();
     const body = (await request.json()) as Record<string, unknown>;
     const clan = await createClan({
       name: String(body.name ?? ""),

@@ -1,4 +1,5 @@
 import { TreeWorkspace } from "@/components/tree-workspace";
+import { currentUser } from "@/lib/auth";
 import { findDoubledAncestors } from "@/lib/kinship";
 import { getFamily, loadKinGraph } from "@/lib/people";
 import { notFound } from "next/navigation";
@@ -18,6 +19,7 @@ export default async function PersonPage({
   const doubledById = Object.fromEntries(
     doubledAncestors.map((item) => [item.person.id, item.pathCount]),
   );
+  const user = await currentUser();
 
   return (
     <TreeWorkspace
@@ -26,6 +28,7 @@ export default async function PersonPage({
       graph={graph}
       doubledById={doubledById}
       doubledAncestors={doubledAncestors}
+      keeper={user?.role === "admin"}
     />
   );
 }

@@ -1,22 +1,18 @@
 import { HomeSearch } from "@/components/home-search";
-import { listRecentPeople } from "@/lib/people";
 
-export const dynamic = "force-dynamic";
-
-export default async function HomePage() {
-  const recent = await listRecentPeople();
-
+export default function HomePage() {
   return (
-    <div className="grid gap-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Семейное древо</h1>
-        <p className="mt-1 text-[var(--muted)]">
-          Начните со себя и допишите родителей, дедов и прадедов. Если этот человек
-          уже есть в семье односельчанина, выберите его: древа сойдутся в одну
-          карточку, и будет видно, кем вы приходитесь.
+    <div className="home-page">
+      <h1>Древо села</h1>
+      <p className="home-lead">Найдите себя или предка и допишите родных.</p>
+      <HomeSearch />
+      <section className="home-about">
+        <h2>О селе</h2>
+        <p>
+          Здесь будет рассказ о селе: как оно называется, где стоит и что жители
+          считают важным передать детям.
         </p>
-      </div>
-      <HomeSearch recent={recent} />
+      </section>
     </div>
   );
 }

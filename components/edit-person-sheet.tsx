@@ -12,10 +12,11 @@ import { useClans } from "@/lib/use-clans";
 type Props = {
   person: PersonDTO;
   foundedClans: ClanDTO[];
+  keeper?: boolean;
   onClose: () => void;
 };
 
-export function EditPersonSheet({ person, foundedClans, onClose }: Props) {
+export function EditPersonSheet({ person, foundedClans, keeper = false, onClose }: Props) {
   const router = useRouter();
   const { clans, addClan } = useClans();
   const [form, setForm] = useState(() => personToForm(person));
@@ -85,14 +86,16 @@ export function EditPersonSheet({ person, foundedClans, onClose }: Props) {
         <button type="button" className="btn-primary" disabled={saving} onClick={save}>
           {saving ? "Сохраняем…" : "Сохранить"}
         </button>
-        <button
-          type="button"
-          className="btn-danger"
-          disabled={saving}
-          onClick={remove}
-        >
-          Удалить человека
-        </button>
+        {keeper ? (
+          <button
+            type="button"
+            className="btn-danger"
+            disabled={saving}
+            onClick={remove}
+          >
+            Удалить человека
+          </button>
+        ) : null}
       </div>
     </Sheet>
   );

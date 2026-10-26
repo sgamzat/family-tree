@@ -1,3 +1,4 @@
+import { requireWriter } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { parseGender, parsePersonInput } from "@/lib/names";
 import {
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requireWriter();
     const body = (await request.json()) as Record<string, unknown>;
     const person = await createPerson(parsePersonInput(body));
     return Response.json({ person }, { status: 201 });

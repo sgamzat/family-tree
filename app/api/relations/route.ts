@@ -1,3 +1,4 @@
+import { requireKeeper, requireWriter } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { parsePersonInput } from "@/lib/names";
 import { addRelation, parseRelationRole, unlinkRelation } from "@/lib/people";
@@ -21,6 +22,7 @@ function relationArgs(source: Record<string, unknown> | URLSearchParams) {
 
 export async function POST(request: Request) {
   try {
+    await requireWriter();
     const body = (await request.json()) as Record<string, unknown>;
     const personId = String(body.personId ?? "").trim();
     if (!personId) throw new Error("Не указан человек");
@@ -51,6 +53,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    await requireKeeper();
     const { searchParams } = new URL(request.url);
     const { personId, role, relativeId } = relationArgs(searchParams);
     if (!relativeId) throw new Error("Не указан родственник");

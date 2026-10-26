@@ -1,3 +1,4 @@
+import { requireKeeper } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { findDuplicatePairs, mergePeople } from "@/lib/duplicates";
 
@@ -5,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await requireKeeper();
     const pairs = await findDuplicatePairs();
     return Response.json({ pairs });
   } catch (error) {
@@ -14,6 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireKeeper();
     const body = (await request.json()) as Record<string, unknown>;
     const keepId = String(body.keepId ?? "").trim();
     const dropId = String(body.dropId ?? "").trim();

@@ -61,6 +61,7 @@ body {
 .site-header-inner {
   margin-inline: auto;
   display: flex;
+  flex-wrap: wrap;
   max-width: 42rem;
   align-items: center;
   justify-content: space-between;
@@ -79,7 +80,9 @@ body {
 
 .site-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.15rem;
   font-size: 0.875rem;
   font-weight: 500;
@@ -87,11 +90,33 @@ body {
 }
 
 .site-nav a,
+.site-nav-button,
 .sheet-close {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
   padding: 0 0.55rem;
+}
+
+.site-nav-button {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.site-nav-name {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.admin-row {
+  display: grid;
+  gap: 0.1rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem 0;
 }
 
 .site-footer {
@@ -206,22 +231,70 @@ textarea.field {
   padding: 0.55rem 0.75rem;
 }
 
-.home-census {
-  display: flex;
+.home-census-link {
+  display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 0.9rem;
-  background: white;
-  padding: 0.85rem 1rem;
+  justify-self: start;
+  color: var(--accent);
   font-weight: 600;
 }
 
-.home-census span:last-child {
+body:has(.home-page) .site-footer {
+  display: none;
+}
+
+body:has(.home-page) .page-main,
+body:has(.home-page) .site-header-inner {
+  max-width: 34rem;
+}
+
+.home-page {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 1.5rem;
+}
+
+.home-page h1 {
+  font-size: 2rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.home-lead {
   color: var(--muted);
-  font-weight: 500;
+  line-height: 1.5;
+}
+
+.home-page .picker {
+  margin-top: 1.25rem;
+}
+
+.home-field {
+  min-height: 3.25rem;
+  padding: 0.85rem 1rem;
+  font-size: 1.125rem;
+  border-radius: 0.9rem;
+}
+
+.home-about {
+  margin-top: 2rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1.25rem;
+}
+
+.home-about h2 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.home-about p {
+  margin-top: 0.65rem;
+  line-height: 1.65;
 }
 
 .btn-danger {
