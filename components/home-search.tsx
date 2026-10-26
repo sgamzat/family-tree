@@ -33,7 +33,7 @@ export function HomeSearch() {
     <div className="grid gap-4">
       <div className="picker">
         <label className="grid gap-2">
-          <span className="sr-only">Найдите себя или родственника</span>
+          <span className="home-search-label">Кого вы ищете?</span>
           <input
             ref={inputRef}
             className="field home-field"
@@ -57,7 +57,7 @@ export function HomeSearch() {
               event.preventDefault();
               if (hits[0]) router.push(`/people/${hits[0].id}`);
             }}
-            placeholder="Имя или имя отца"
+            placeholder="Имя, имя отца или деда"
           />
         </label>
         {showList ? (
@@ -87,9 +87,9 @@ export function HomeSearch() {
         ) : null}
       </div>
 
-      <Link href="/census" className="home-census-link">
-        Перепись населения 1886 года
-      </Link>
+      <p className="home-search-hint">
+        Ищем сразу среди живущих и в переписи 1886 года.
+      </p>
     </div>
   );
 }

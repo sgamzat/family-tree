@@ -3,10 +3,16 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AddRelativeSheet } from "@/components/add-relative-sheet";
+import { CensusStamp } from "@/components/census-stamp";
 import { EditPersonSheet } from "@/components/edit-person-sheet";
 import { ClanTreeView, LineageTree } from "@/components/family-tree";
 import { api } from "@/lib/api";
-import type { KinGraph } from "@/lib/graph";
+import {
+  censusPathUp,
+  generationWord,
+  livingDescendantCount,
+} from "@/lib/census";
+import { indexGraph, type KinGraph } from "@/lib/graph";
 import type { DoubledAncestor } from "@/lib/kinship";
 import {
   formatFio,
@@ -116,6 +122,18 @@ export function TreeWorkspace({
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
 
+  const indexed = useMemo(() => indexGraph(graph), [graph]);
+  const inCensus = family.person.inCensus1886;
+  const pathUp = useMemo(
+    () => (inCensus ? null : censusPathUp(indexed, personId)),
+    [indexed, personId, inCensus],
+  );
+  const livingDown = useMemo(
+    () => (inCensus ? livingDescendantCount(indexed, personId) : 0),
+    [indexed, personId, inCensus],
+  );
+  const censusAncestor = pathUp ? pathUp[pathUp.length - 1] : null;
+
   const lineTree = useMemo(
     () => buildPersonTree(graph, personId, { up, down }),
     [graph, personId, up, down],
@@ -139,6 +157,11 @@ export function TreeWorkspace({
     : family;
 
   const years = personYears(family.person);
+  const parentLine = family.father
+    ? `${family.person.gender === "male" ? "сын" : "дочь"} ${family.father.firstName}`
+    : family.mother
+      ? `${family.person.gender === "male" ? "сын" : "дочь"} ${family.mother.firstName}`
+      : "";
   const clanHint = family.clan.computed
     ? `Тухум: ${family.clan.computed.name}`
     : family.clan.claimed
@@ -176,19 +199,95 @@ export function TreeWorkspace({
   const panel = (
     <aside className="echo-panel">
       <div className="echo-who">
-        <p className="echo-kicker">Выбран</p>
+        {inCensus ? (
+          <Link href="/census" className="echo-stamp-link">
+            <CensusStamp label="Перепись" />
+          </Link>
+        ) : (
+          <p className="echo-kicker">Выбран</p>
+        )}
         <h1>{formatFio(family.person) || family.person.firstName}</h1>
+        {parentLine ? <p className="echo-parent">{parentLine}</p> : null}
         <p>
           {[years, family.person.gender === "male" ? "мужчина" : "женщина", clanHint]
             .filter(Boolean)
             .join(" · ")}
         </p>
-        {family.person.inCensus1886 ? (
-          <p>
-            <Link href="/census">Перепись населения 1886 года</Link>
-          </p>
+        {family.person.aliases.length > 0 ? (
+          <p>Также: {family.person.aliases.join(", ")}</p>
         ) : null}
+        {family.person.sourceNote ? <p>Источник: {family.person.sourceNote}</p> : null}
       </div>
+
+      {inCensus ? (
+        livingDown > 0 ? (
+          <div className="echo-line is-linked">
+            <p className="echo-line-title">Линия до наших дней</p>
+            <p>
+              Доведена до живущих: среди потомков{" "}
+              {livingDown === 1 ? "один живущий" : `живущих — ${livingDown}`}.
+            </p>
+          </div>
+        ) : (
+          <div className="echo-line is-open">
+            <p className="echo-line-title">Линия до наших дней</p>
+            <p>
+              Пока не доведена до живущих. Знаете детей или внуков? Добавьте их, и
+              линия соединится с сегодняшним днём.
+            </p>
+            <button
+              type="button"
+              className="echo-line-action"
+              onClick={() => {
+                setSibling(false);
+                setRole("child");
+              }}
+            >
+              Добавить ребёнка
+            </button>
+          </div>
+        )
+      ) : pathUp ? (
+        <div className="echo-line is-linked">
+          <p className="echo-line-title">Линия дошла до переписи 1886</p>
+          <ol className="echo-path">
+            {pathUp.map((step) => (
+              <li key={step.person.id}>
+                {step.up === 0 ? (
+                  <span>{step.person.firstName}</span>
+                ) : (
+                  <Link href={`/people/${step.person.id}`}>{step.person.firstName}</Link>
+                )}
+                <span>
+                  {generationWord(step.up, step.person.gender)}
+                  {step.person.inCensus1886 ? " · 1886" : ""}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : (
+        <div className="echo-line is-open">
+          <p className="echo-line-title">До переписи 1886</p>
+          <p>
+            Линия пока не дошла до переписи. Добавьте отца, деда, прадеда — кого
+            помните. Когда цепочка дойдёт до человека из переписи, она соединится.
+          </p>
+          {!family.father ? (
+            <button type="button" className="echo-line-action" onClick={() => setRole("father")}>
+              Добавить отца
+            </button>
+          ) : !family.mother ? (
+            <button type="button" className="echo-line-action" onClick={() => setRole("mother")}>
+              Добавить мать
+            </button>
+          ) : (
+            <Link href={`/people/${family.father.id}`} className="echo-line-action">
+              Продолжить у отца
+            </Link>
+          )}
+        </div>
+      )}
 
       {family.clan.mismatch && family.clan.claimed && family.clan.computed ? (
         <p className="echo-warn">
@@ -345,6 +444,13 @@ export function TreeWorkspace({
             Родство
           </Link>
         </div>
+
+        {censusAncestor ? (
+          <p className="echo-plaque">
+            Линия дошла до переписи 1886 года: {censusAncestor.person.firstName},{" "}
+            {generationWord(censusAncestor.up, censusAncestor.person.gender)}.
+          </p>
+        ) : null}
 
         {mode === "line" ? (
           <div className="echo-depth-scroll">

@@ -4,8 +4,15 @@ import { useMemo, useState } from "react";
 import { PersonTile } from "@/components/person-tile";
 import { formatFio, normalizeName, type PersonDTO } from "@/lib/names";
 
-export function CensusList({ people }: { people: PersonDTO[] }) {
+export function CensusList({
+  people,
+  linkedIds,
+}: {
+  people: PersonDTO[];
+  linkedIds?: string[];
+}) {
   const [query, setQuery] = useState("");
+  const linked = useMemo(() => new Set(linkedIds ?? []), [linkedIds]);
   const trimmed = normalizeName(query);
   const shown = useMemo(() => {
     if (!trimmed) return people;
@@ -51,7 +58,18 @@ export function CensusList({ people }: { people: PersonDTO[] }) {
         </p>
       )}
       {shown.map((person) => (
-        <PersonTile key={person.id} person={person} href={`/people/${person.id}`} />
+        <PersonTile
+          key={person.id}
+          person={person}
+          href={`/people/${person.id}`}
+          caption={
+            linkedIds
+              ? linked.has(person.id)
+                ? "связан с живущими"
+                : "пока не связан с живущими"
+              : null
+          }
+        />
       ))}
     </div>
   );

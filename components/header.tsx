@@ -12,6 +12,7 @@ export async function Header() {
           Древо села
         </Link>
         <nav className="site-nav">
+          <Link href="/census">Перепись</Link>
           <Link href="/kinship">Родство</Link>
           {user?.role === "admin" ? <Link href="/admin">Админка</Link> : null}
           {user ? (

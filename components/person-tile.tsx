@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CensusStamp } from "@/components/census-stamp";
 import { formatFio, personYears, searchHitCaption, type PersonDTO, type SearchHit } from "@/lib/names";
 
 type Props = {
@@ -13,18 +14,16 @@ export function PersonTile({ person, href, caption, current, onClick }: Props) {
   const extra = "fatherLabel" in person ? person.fatherLabel : caption;
   const details =
     "clanName" in person
-      ? searchHitCaption(person)
+      ? searchHitCaption(person, { census: false })
       : [personYears(person), extra].filter(Boolean).join(" · ");
 
   const content = (
     <>
-      <span
-        className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-          person.gender === "male" ? "bg-[var(--male)]" : "bg-[var(--female)]"
-        }`}
-      />
-      <span className="min-w-0">
-        <span className="block font-medium leading-snug">{formatFio(person)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-semibold leading-snug">{formatFio(person)}</span>
+          {person.inCensus1886 ? <CensusStamp /> : null}
+        </span>
         {details ? (
           <span className="mt-0.5 block text-sm text-[var(--muted)]">{details}</span>
         ) : null}
@@ -35,7 +34,7 @@ export function PersonTile({ person, href, caption, current, onClick }: Props) {
   const className = `flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition ${
     current
       ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-      : "border-[var(--line)] bg-white hover:border-[var(--accent)]"
+      : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--accent)]"
   }`;
 
   if (onClick) {
@@ -69,7 +68,7 @@ export function AddSlot({ label, onClick }: { label: string; onClick: () => void
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[72px] w-full items-center justify-center rounded-xl border border-dashed border-[var(--line-strong)] bg-[var(--slot)] px-3 py-3 text-sm font-medium text-[var(--accent)]"
+      className="flex min-h-[72px] w-full items-center justify-center rounded-xl border border-dashed border-[var(--line-strong)] bg-transparent px-3 py-3 text-base font-semibold text-[var(--accent)]"
     >
       {label}
     </button>
