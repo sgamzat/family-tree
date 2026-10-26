@@ -426,22 +426,28 @@ export function TreeWorkspace({
 
       <section className={`echo-stage ${pane === "card" ? "is-hidden-mobile" : ""}`}>
         <div className="echo-toolbar">
-          <button
-            type="button"
-            className={`echo-chip ${mode === "line" ? "is-on" : ""}`}
-            onClick={() => setMode("line")}
-          >
-            Семья
-          </button>
-          <button
-            type="button"
-            className={`echo-chip ${mode === "clan" ? "is-on" : ""}`}
-            onClick={() => setMode("clan")}
-          >
-            Род
-          </button>
+          <div className="echo-mode" role="tablist" aria-label="Вид древа">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "line"}
+              className={mode === "line" ? "is-on" : ""}
+              onClick={() => setMode("line")}
+            >
+              Своя линия
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "clan"}
+              className={mode === "clan" ? "is-on" : ""}
+              onClick={() => setMode("clan")}
+            >
+              Весь тухум
+            </button>
+          </div>
           <Link href={`/kinship?from=${personId}`} className="echo-chip echo-chip-link">
-            Родство
+            Кем приходится
           </Link>
         </div>
 

@@ -80,11 +80,13 @@ function AlternatePath({
 
 export function KinshipFinder({
   initialFrom,
+  initialTo,
 }: {
   initialFrom?: PersonDTO | null;
+  initialTo?: PersonDTO | null;
 }) {
   const [from, setFrom] = useState<PersonDTO | null>(initialFrom ?? null);
-  const [to, setTo] = useState<PersonDTO | null>(null);
+  const [to, setTo] = useState<PersonDTO | null>(initialTo ?? null);
   const [result, setResult] = useState<KinshipLookup | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
