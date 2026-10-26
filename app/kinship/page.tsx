@@ -6,10 +6,13 @@ export const dynamic = "force-dynamic";
 export default async function KinshipPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; to?: string }>;
 }) {
-  const { from } = await searchParams;
-  const family = from ? await getFamily(from) : null;
+  const { from, to } = await searchParams;
+  const [family, target] = await Promise.all([
+    from ? getFamily(from) : null,
+    to ? getFamily(to) : null,
+  ]);
 
   return (
     <div className="grid gap-5">
@@ -20,7 +23,10 @@ export default async function KinshipPage({
           кровью, и через брак, покажем обе линии.
         </p>
       </div>
-      <KinshipFinder initialFrom={family?.person ?? null} />
+      <KinshipFinder
+        initialFrom={family?.person ?? null}
+        initialTo={target?.person ?? null}
+      />
     </div>
   );
 }

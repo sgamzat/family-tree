@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeaderSearch } from "@/components/header-search";
 import { SignOutButton } from "@/components/sign-out-button";
 import { currentUser } from "@/lib/auth";
 
@@ -11,6 +12,7 @@ export async function Header() {
         <Link href="/" className="site-logo">
           Древо села
         </Link>
+        <HeaderSearch />
         <nav className="site-nav">
           <Link href="/census">Перепись</Link>
           <Link href="/kinship">Родство</Link>

@@ -135,6 +135,58 @@ button:focus-visible {
   letter-spacing: -0.01em;
 }
 
+.header-search {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .site-header-inner {
+    max-width: 72rem;
+  }
+
+  .header-search {
+    position: relative;
+    display: block;
+    flex: 1 1 16rem;
+    max-width: 26rem;
+  }
+}
+
+body:has(.home-page) .header-search {
+  display: none;
+}
+
+.header-search-field {
+  display: flex;
+  height: 2.75rem;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid #b9b0a2;
+  border-radius: 0.65rem;
+  background: var(--card);
+  padding: 0 0.8rem;
+  color: var(--muted);
+}
+
+.header-search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.header-search-field input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.header-search-results {
+  max-height: 60vh;
+}
+
 .site-nav {
   display: flex;
   flex-wrap: wrap;
@@ -740,8 +792,129 @@ a.home-clan-row:hover .home-clan-name {
 
 .tree-line--spouse {
   stroke: var(--tree-line);
-  stroke-width: 4;
+  stroke-width: 3;
   stroke-linecap: butt;
+}
+
+/* Подложка цвета фона: там, где линия семьи пересекает чужую, видно разрыв, а не развилку */
+.tree-line-halo {
+  fill: none;
+  stroke: var(--slot);
+  stroke-width: 7;
+  stroke-linecap: butt;
+}
+
+.tree-node.tree-node-selected,
+.tree-node.tree-node-selected:hover {
+  z-index: 2;
+  border: 2px solid var(--census);
+}
+
+.tree-frame {
+  position: relative;
+  height: 100%;
+}
+
+.tree-zoom-box {
+  position: relative;
+  margin-inline: auto;
+}
+
+.tree-zoom-box .tree-echo {
+  margin: 0;
+}
+
+.tree-zoom {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.75rem;
+  z-index: 4;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tree-zoom button {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tree-border);
+  border-radius: 0.65rem;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.tree-zoom button:hover {
+  border-color: var(--accent);
+}
+
+.tree-pick {
+  position: absolute;
+  inset-inline: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--card);
+  padding: 0.75rem 0.85rem;
+  box-shadow: 0 8px 24px rgb(31 42 36 / 0.12);
+}
+
+.tree-pick-who {
+  min-width: 0;
+}
+
+.tree-pick-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.tree-pick-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tree-pick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tree-pick-main,
+.tree-pick-more {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  border-radius: 0.65rem;
+  padding: 0 0.9rem;
+  font-weight: 600;
+}
+
+.tree-pick-main {
+  background: var(--accent);
+  color: var(--card);
+}
+
+.tree-pick-more {
+  border: 1px solid var(--tree-border);
+  color: var(--ink);
+}
+
+.tree-pick-close {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
 }
 
 body:has(.echo-page) .site-footer {
@@ -801,8 +974,39 @@ body:has(.echo-page) .page-main {
 .echo-toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
   padding: 0.55rem 0.75rem 0;
+}
+
+.echo-mode {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-radius: 0.75rem;
+  background: #e9e1d4;
+  padding: 0.2rem;
+}
+
+.echo-mode button {
+  min-height: 2.5rem;
+  border-radius: 0.6rem;
+  padding: 0 0.9rem;
+  color: #3b4842;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.echo-mode .is-on {
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.echo-toolbar .echo-chip-link {
+  min-height: 2.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .echo-depths {
@@ -876,10 +1080,10 @@ body:has(.echo-page) .page-main {
 
 .echo-canvas .tree-scroll {
   height: 100%;
-  min-height: 22rem;
+  min-height: 24rem;
   margin: 0;
-  padding: 0.75rem max(1rem, env(safe-area-inset-right)) 1.5rem
-    max(1rem, env(safe-area-inset-left));
+  /* справа место под кнопки масштаба, снизу — под панель выбранного */
+  padding: 0.75rem 4rem 6.5rem max(1rem, env(safe-area-inset-left));
 }
 
 .echo-panel {
