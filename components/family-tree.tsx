@@ -7,8 +7,8 @@ import { indexGraph, type IndexedGraph, type KinGraph } from "@/lib/graph";
 import { personYears, type PersonDTO } from "@/lib/names";
 import type { AncestorNode, ClanTree, DescentNode, PersonTree } from "@/lib/tree";
 
-const BOX_W = 108;
-const BOX_H = 54;
+const BOX_W = 128;
+const BOX_H = 58;
 const PAIR_GAP = 24;
 const UNIT_GAP = 40;
 const ROW_GAP = 52;
@@ -627,7 +627,7 @@ function EchoTree({
               href={`/people/${box.person.id}`}
               aria-label={caption}
               className={`tree-node ${
-                box.person.gender === "male" ? "tree-node-male" : "tree-node-female"
+                box.person.inCensus1886 ? "tree-node-census" : ""
               } ${box.current ? "tree-node-current" : ""}`}
               style={{ left: box.x, top: box.y }}
               onClick={(event) => {
@@ -635,7 +635,13 @@ function EchoTree({
                 router.push(`/people/${box.person.id}`);
               }}
             >
+              {box.person.inCensus1886 ? (
+                <span className="tree-node-stamp" title="Записан в переписи 1886 года">
+                  1886
+                </span>
+              ) : null}
               <span className="tree-node-name">{box.person.firstName}</span>
+              {years ? <span className="tree-node-years">{years}</span> : null}
               {pathCount && pathCount > 1 ? (
                 <span className="tree-node-mark">×{pathCount}</span>
               ) : null}

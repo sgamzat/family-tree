@@ -152,9 +152,12 @@ export function personYears(person: {
   );
 }
 
-export function searchHitCaption(hit: SearchHit): string {
+export function searchHitCaption(
+  hit: SearchHit,
+  options: { census?: boolean } = {},
+): string {
   const clan = hit.clanName ? `тухум ${hit.clanName}` : "";
-  const census = hit.inCensus1886 ? "перепись 1886" : "";
+  const census = hit.inCensus1886 && options.census !== false ? "перепись 1886" : "";
   const children = hit.childrenLabel ? `дети: ${hit.childrenLabel}` : "";
   return [personYears(hit), hit.fatherLabel, clan, census, children]
     .filter(Boolean)
