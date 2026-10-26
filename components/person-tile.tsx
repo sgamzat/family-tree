@@ -19,6 +19,10 @@ export function PersonTile({ person, href, caption, current, onClick }: Props) {
 
   const content = (
     <>
+      <span
+        className={`gender-dot ${person.gender === "male" ? "is-male" : "is-female"}`}
+        aria-hidden="true"
+      />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-semibold leading-snug">{formatFio(person)}</span>

@@ -4,6 +4,8 @@ import { parseGender, parsePersonInput } from "@/lib/names";
 import {
   createPerson,
   listRecentPeople,
+  matchPeople,
+  parseNamesakeIds,
   parseRelationRole,
   searchPeople,
 } from "@/lib/people";
@@ -29,6 +31,18 @@ export async function GET(request: Request) {
     }
 
     const gender = genderParam ? parseGender(genderParam) : undefined;
+    if (searchParams.get("match") === "1") {
+      const people = await matchPeople({
+        firstName,
+        lastName,
+        patronymic,
+        gender,
+        excludeIds: exclude.filter(Boolean),
+        nearId: nearId || undefined,
+        role: roleParam ? parseRelationRole(roleParam) : undefined,
+      });
+      return Response.json({ people });
+    }
     const people = await searchPeople({
       query,
       lastName,
@@ -49,7 +63,9 @@ export async function POST(request: Request) {
   try {
     await requireWriter();
     const body = (await request.json()) as Record<string, unknown>;
-    const person = await createPerson(parsePersonInput(body));
+    const person = await createPerson(parsePersonInput(body), {
+      namesakeOf: parseNamesakeIds(body.namesakeOf),
+    });
     return Response.json({ person }, { status: 201 });
   } catch (error) {
     return jsonError(error);

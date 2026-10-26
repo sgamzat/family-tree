@@ -15,6 +15,11 @@
   --census-ink: #3a2410;
   --census-soft: #f1e3d0;
   --census-line: #b88a5e;
+  /* Цвета по полу: приглушённые, чтобы не спорить с бумажной палитрой */
+  --male: #4a6d93;
+  --female: #a05a78;
+  --male-soft: #d9e6f3;
+  --female-soft: #f5dde2;
   --slot: #fbf8f2;
   --danger: #9b2c2c;
   --danger-soft: #f8e8e8;
@@ -466,6 +471,147 @@ body:has(.home-page) .site-header-inner {
   font-size: 0.9rem;
 }
 
+.gender-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  flex: none;
+  margin-top: 0.45rem;
+  border-radius: 999px;
+}
+
+.gender-dot.is-male {
+  background: var(--male);
+}
+
+.gender-dot.is-female {
+  background: var(--female);
+}
+
+/* Совпадения при вводе человека */
+.match-wait {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.match-panel {
+  display: grid;
+  gap: 0.75rem;
+  border: 1.5px solid #d9bfa0;
+  border-radius: 0.9rem;
+  background: var(--census-soft);
+  padding: 0.9rem;
+  scroll-margin: 1rem;
+}
+
+.match-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--census-ink);
+}
+
+.match-lead {
+  margin-top: 0.2rem;
+  color: var(--census-ink);
+  font-size: 0.9rem;
+}
+
+.match-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.match-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: 0.65rem 0.75rem;
+}
+
+.match-card.is-near {
+  border-color: var(--accent);
+}
+
+.match-who {
+  min-width: 0;
+  flex: 1;
+}
+
+.match-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.match-badge {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  padding: 0 0.5rem;
+  color: var(--accent-strong);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.match-details {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.match-pick {
+  min-height: 2.75rem;
+  flex: none;
+  border-radius: 0.65rem;
+  background: var(--accent);
+  padding: 0 1rem;
+  color: var(--card);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.match-new {
+  min-height: 2.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: 0.5rem 0.9rem;
+  color: var(--ink);
+  font-weight: 600;
+  text-align: center;
+}
+
+.match-confirm {
+  display: grid;
+  gap: 0.6rem;
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.match-confirm-actions {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.match-back {
+  min-height: 2.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.match-pick:disabled,
+.match-new:disabled {
+  opacity: 0.6;
+}
+
 .home-door-chevron {
   flex: none;
   color: var(--muted);
@@ -627,14 +773,22 @@ a.home-clan-row:hover .home-clan-name {
   border-color: var(--accent);
 }
 
+.tree-node-male {
+  background: var(--male-soft);
+}
+
+.tree-node-female {
+  background: var(--female-soft);
+}
+
 .tree-node-census {
   border: 1.5px solid var(--census-line);
 }
 
-.tree-node-current {
+.tree-node.tree-node-current,
+.tree-node.tree-node-current:hover {
   z-index: 2;
-  border: 2px solid var(--accent);
-  background: var(--accent-soft);
+  border: 3px solid var(--accent);
 }
 
 .tree-node-name {
@@ -657,8 +811,9 @@ a.home-clan-row:hover .home-clan-name {
   white-space: nowrap;
 }
 
-.tree-node-current .tree-node-years {
-  color: var(--accent-strong);
+.tree-node-male .tree-node-years,
+.tree-node-female .tree-node-years {
+  color: #4a524d;
 }
 
 .tree-node-stamp {

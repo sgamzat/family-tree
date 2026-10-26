@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PersonFields, emptyPersonForm } from "@/components/person-fields";
 import { Sheet } from "@/components/sheet";
-import { SuggestionList } from "@/components/suggestion-list";
+import { MatchPanel } from "@/components/match-panel";
 import { api } from "@/lib/api";
 import {
+  formatFio,
   parsePersonInput,
   relationTitle,
   suggestRelativeNames,
@@ -90,16 +91,19 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
     return ids.filter((id): id is string => Boolean(id));
   }, [family]);
 
-  const genderFilter = role === "father" ? "male" : role === "mother" ? "female" : undefined;
   const { hits, loading } = usePersonSearch({
     lastName: form.lastName,
     firstName: form.firstName,
     patronymic: form.patronymic,
-    gender: genderFilter,
+    gender: form.gender,
     excludeIds,
     nearId: personId,
     role,
+    match: true,
   });
+  const nameKey = [form.lastName, form.firstName, form.patronymic, form.gender].join("|");
+  const [confirmKey, setConfirmKey] = useState("");
+  const confirmingNew = hits.length > 0 && confirmKey === nameKey;
 
   async function linkExisting(existingPersonId: string) {
     setSaving(true);
@@ -119,11 +123,9 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
   }
 
   async function createAndLink() {
-    if (hits.length > 0) {
-      const ok = window.confirm(
-        "Похожие люди уже есть в дереве. Точно создать нового, а не нажать «Это он»?",
-      );
-      if (!ok) return;
+    if (hits.length > 0 && !confirmingNew) {
+      setConfirmKey(nameKey);
+      return;
     }
     setSaving(true);
     setError("");
@@ -135,7 +137,12 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
       });
       await api("/api/relations", {
         method: "POST",
-        body: JSON.stringify({ personId, role, newPerson }),
+        body: JSON.stringify({
+          personId,
+          role,
+          newPerson,
+          namesakeOf: hits.map((hit) => hit.id),
+        }),
       });
       onSaved();
       router.refresh();
@@ -153,20 +160,29 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
       ) : null}
       <PersonFields value={form} onChange={changeForm} lockGender={genderLocked} />
       <div className="mt-4 grid gap-3">
-        <SuggestionList hits={hits} loading={loading} onPick={(hit) => linkExisting(hit.id)} />
+        <MatchPanel
+          hits={hits}
+          loading={loading}
+          gender={form.gender}
+          typedName={formatFio(form)}
+          saving={saving}
+          confirmingNew={confirmingNew}
+          onPick={(hit) => void linkExisting(hit.id)}
+          onAskNew={() => setConfirmKey(nameKey)}
+          onCancelNew={() => setConfirmKey("")}
+          onCreateNew={() => void createAndLink()}
+        />
         {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={saving}
-          onClick={createAndLink}
-        >
-          {hits.length > 0
-            ? "Это другой человек — создать нового"
-            : saving
-              ? "Сохраняем…"
-              : "Создать и связать"}
-        </button>
+        {hits.length === 0 ? (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={saving || loading}
+            onClick={() => void createAndLink()}
+          >
+            {saving ? "Сохраняем…" : "Создать и связать"}
+          </button>
+        ) : null}
       </div>
     </Sheet>
   );
