@@ -84,6 +84,7 @@ export async function findDuplicatePairs(limit = 40): Promise<DuplicatePair[]> {
         sourceNote: person.sourceNote,
         aliases: person.aliases.map((alias) => alias.name),
         claimedClanId: person.claimedClanId,
+        inCensus1886: person.inCensus1886,
       },
       fatherName: father?.firstName ?? "",
       fatherFamily: father ? nameFamily(father.firstName) : "",
@@ -283,6 +284,7 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
         isLiving: keep.isLiving ?? drop.isLiving,
         sourceNote: keep.sourceNote || drop.sourceNote,
         claimedClanId: keep.claimedClanId ?? drop.claimedClanId,
+        inCensus1886: keep.inCensus1886 || drop.inCensus1886,
         lastNameNorm: normalizeName(keep.lastName || drop.lastName),
         patronymicNorm: normalizeName(keep.patronymic || drop.patronymic),
       },
@@ -326,5 +328,6 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
     sourceNote: merged.sourceNote,
     aliases: merged.aliases.map((alias) => alias.name),
     claimedClanId: merged.claimedClanId,
+    inCensus1886: merged.inCensus1886,
   };
 }

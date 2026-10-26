@@ -179,6 +179,11 @@ export function TreeWorkspace({
             .filter(Boolean)
             .join(" · ")}
         </p>
+        {family.person.inCensus1886 ? (
+          <p>
+            <Link href="/census">Перепись населения 1886 года</Link>
+          </p>
+        ) : null}
       </div>
 
       {family.clan.mismatch && family.clan.claimed && family.clan.computed ? (

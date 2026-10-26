@@ -7,27 +7,47 @@ RUN apt-get update \
 
 WORKDIR /app
 
-ENV NPM_CONFIG_FETCH_RETRIES=5 \
-    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
-    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000
+# Fewer parallel downloads: a full burst to registry.npmjs.org gets ECONNRESET
+# and npm stays silent until the whole attempt gives up.
+ENV NODE_OPTIONS=--dns-result-order=ipv4first \
+    NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_FACTOR=2 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=5000 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=30000 \
+    NPM_CONFIG_FETCH_TIMEOUT=90000 \
+    NPM_CONFIG_MAXSOCKETS=3 \
+    NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_FUND=false
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 
 # Engine download from binaries.prisma.sh often gets ECONNRESET; retry separately.
-RUN set -eu; \
+RUN --mount=type=cache,target=/root/.npm \
+    set -eu; \
     ok=0; \
     for i in 1 2 3 4 5; do \
-      if npm ci --ignore-scripts; then ok=1; break; fi; \
+      echo "npm ci attempt $i"; \
+      ( while true; do sleep 20; echo "npm ci still downloading..."; done ) & \
+      beat=$!; \
+      if npm ci --ignore-scripts --no-audit --no-fund; then \
+        kill "$beat" 2>/dev/null || true; \
+        wait "$beat" 2>/dev/null || true; \
+        ok=1; \
+        break; \
+      fi; \
+      kill "$beat" 2>/dev/null || true; \
+      wait "$beat" 2>/dev/null || true; \
       echo "npm ci failed (attempt $i), retrying..."; \
       rm -rf node_modules; \
-      sleep $((i * 10)); \
+      sleep $((i * 5)); \
     done; \
     test "$ok" = 1
 
 RUN set -eu; \
     ok=0; \
     for i in 1 2 3 4 5; do \
+      echo "prisma generate attempt $i"; \
       if npx prisma generate; then ok=1; break; fi; \
       echo "prisma generate failed (attempt $i), retrying..."; \
       sleep $((i * 10)); \

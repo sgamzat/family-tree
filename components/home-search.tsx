@@ -87,6 +87,11 @@ export function HomeSearch({ recent }: { recent: PersonDTO[] }) {
         ) : null}
       </div>
 
+      <Link href="/census" className="home-census">
+        <span>Перепись населения 1886 года</span>
+        <span aria-hidden="true">→</span>
+      </Link>
+
       {!showList && recent.length > 0 ? (
         <section className="grid gap-2">
           <h2 className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">

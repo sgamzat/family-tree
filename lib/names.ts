@@ -27,6 +27,7 @@ export type PersonDTO = {
   sourceNote: string;
   aliases: string[];
   claimedClanId: string | null;
+  inCensus1886: boolean;
 };
 
 export type SearchHit = PersonDTO & {
@@ -60,6 +61,7 @@ export type PersonInput = {
   sourceNote: string;
   aliases: string[];
   claimedClanId: string | null;
+  inCensus1886: boolean;
 };
 
 export type RelationRole = "father" | "mother" | "spouse" | "child";
@@ -152,8 +154,9 @@ export function personYears(person: {
 
 export function searchHitCaption(hit: SearchHit): string {
   const clan = hit.clanName ? `тухум ${hit.clanName}` : "";
+  const census = hit.inCensus1886 ? "перепись 1886" : "";
   const children = hit.childrenLabel ? `дети: ${hit.childrenLabel}` : "";
-  return [personYears(hit), hit.fatherLabel, clan, children]
+  return [personYears(hit), hit.fatherLabel, clan, census, children]
     .filter(Boolean)
     .join(" · ");
 }
@@ -364,6 +367,7 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
     sourceNote: String(body.sourceNote ?? "").trim(),
     aliases: parseAliases(body.aliases),
     claimedClanId: claimedRaw || null,
+    inCensus1886: body.inCensus1886 === true,
   };
 }
 

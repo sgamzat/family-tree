@@ -23,6 +23,7 @@ model Person {
   isLiving       Boolean?
   sourceNote     String   @default("")
   claimedClanId  String?
+  inCensus1886   Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   claimedClan  Clan?         @relation("ClaimedClan", fields: [claimedClanId], references: [id], onDelete: SetNull)
@@ -37,6 +38,7 @@ model Person {
   @@index([firstNameNorm])
   @@index([patronymicNorm])
   @@index([claimedClanId])
+  @@index([inCensus1886])
 }
 
 model PersonAlias {

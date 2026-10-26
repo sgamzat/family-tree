@@ -39,6 +39,7 @@ function toDto(person: PersonRecord): PersonDTO {
     sourceNote: person.sourceNote,
     aliases: (person.aliases ?? []).map((alias) => alias.name),
     claimedClanId: person.claimedClanId,
+    inCensus1886: person.inCensus1886,
   };
 }
 
@@ -86,6 +87,7 @@ export async function createPerson(input: PersonInput): Promise<PersonDTO> {
     const created = await tx.person.create({
       data: {
         ...personScalarData(input),
+        inCensus1886: input.inCensus1886,
         aliases: { create: aliasCreates(input) },
       },
       include: { aliases: true },
@@ -276,6 +278,39 @@ export async function searchPeople(options: {
   });
 
   return hits.slice(0, options.limit ?? 8);
+}
+
+export async function listCensusPeople(): Promise<PersonDTO[]> {
+  const people = await prisma.person.findMany({
+    where: { inCensus1886: true },
+    include: { aliases: true },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { patronymic: "asc" }],
+  });
+  return people.map(toDto);
+}
+
+export async function markPersonInCensus1886(id: string): Promise<PersonDTO> {
+  const existing = await prisma.person.findUnique({
+    where: { id },
+    include: { aliases: true },
+  });
+  if (!existing) throw new Error("Человек не найден");
+  if (existing.inCensus1886) return toDto(existing);
+
+  const person = await prisma.$transaction(async (tx) => {
+    const updated = await tx.person.update({
+      where: { id },
+      data: { inCensus1886: true },
+      include: { aliases: true },
+    });
+    await writeChangeLog(tx, {
+      action: "person.census",
+      personId: id,
+      payload: { inCensus1886: true },
+    });
+    return updated;
+  });
+  return toDto(person);
 }
 
 export async function listRecentPeople(limit = 20): Promise<PersonDTO[]> {
