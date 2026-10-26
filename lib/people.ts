@@ -10,6 +10,7 @@ import type { KinGraph } from "@/lib/graph";
 import {
   fatherLabel,
   formatFio,
+  maleLastName,
   nameFamily,
   nameTokens,
   nameVariants,
@@ -81,7 +82,19 @@ async function assertClaimedClan(claimedClanId: string | null) {
   if (!clan) throw new Error("Род не найден");
 }
 
-export async function createPerson(input: PersonInput): Promise<PersonDTO> {
+/** Кого человек видел среди совпадений и отметил: «это другой — тёзка или однофамилец». */
+export function parseNamesakeIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+export async function createPerson(
+  input: PersonInput,
+  meta: { namesakeOf?: string[] } = {},
+): Promise<PersonDTO> {
   await assertClaimedClan(input.claimedClanId);
   const person = await prisma.$transaction(async (tx) => {
     const created = await tx.person.create({
@@ -95,7 +108,10 @@ export async function createPerson(input: PersonInput): Promise<PersonDTO> {
     await writeChangeLog(tx, {
       action: "person.create",
       personId: created.id,
-      payload: { person: toDto(created) },
+      payload: {
+        person: toDto(created),
+        ...(meta.namesakeOf?.length ? { namesakeOf: meta.namesakeOf } : {}),
+      },
     });
     return created;
   });
@@ -173,50 +189,28 @@ export async function deletePerson(id: string): Promise<void> {
   });
 }
 
-export async function searchPeople(options: {
+type HitOptions = {
+  firstName?: string;
   query?: string;
   lastName?: string;
-  firstName?: string;
   patronymic?: string;
-  gender?: Gender;
-  excludeIds?: string[];
   nearId?: string;
   role?: RelationRole;
   limit?: number;
-}): Promise<SearchHit[]> {
-  const tokens = nameTokens(
-    options.query,
-    options.lastName,
-    options.firstName,
-    options.patronymic,
-  );
-  if (tokens.length === 0) return [];
+  /** Подбор при вводе родственника: совпадение фамилии и отчества поднимает выше. */
+  match?: boolean;
+};
 
-  const people = await prisma.person.findMany({
-    where: {
-      AND: [
-        ...tokens.map((token) => ({
-          OR: nameVariants(token).flatMap((variant) => [
-            { lastNameNorm: { startsWith: variant } },
-            { firstNameNorm: { startsWith: variant } },
-            { patronymicNorm: { startsWith: variant } },
-            { aliases: { some: { nameNorm: { startsWith: variant } } } },
-          ]),
-        })),
-        options.gender ? { gender: options.gender } : {},
-        options.excludeIds?.length
-          ? { id: { notIn: options.excludeIds } }
-          : {},
-      ],
-    },
-    include: {
-      aliases: true,
-      asChild: { include: { parent: true } },
-      asParent: { include: { child: true } },
-    },
-    take: 40,
-  });
+const hitInclude = {
+  aliases: true,
+  asChild: { include: { parent: true } },
+  asParent: { include: { child: true } },
+} as const;
 
+type HitRecord = Prisma.PersonGetPayload<{ include: typeof hitInclude }>;
+
+/** Карточки-кандидаты с контекстом (отец, тухум, дети) в порядке вероятности. */
+async function rankHits(people: HitRecord[], options: HitOptions): Promise<SearchHit[]> {
   const [clans, graph, near] = await Promise.all([
     listClans(),
     loadKinGraph(),
@@ -259,25 +253,123 @@ export async function searchPeople(options: {
     };
   });
 
-  hits.sort((left, right) => {
-    const score = (hit: SearchHit) => {
-      let points = 0;
-      if (hit.sameClan) points += 80;
-      if (yearDelta !== null && near?.birthYear && hit.birthYear) {
-        const diff = Math.abs(hit.birthYear - (near.birthYear + yearDelta));
-        if (diff <= 8) points += 50;
-        else if (diff <= 15) points += 25;
-        else if (diff <= 25) points += 10;
-        else points -= 10;
-      }
-      const first = nameFamily(options.firstName || options.query || "");
-      if (first && nameFamily(hit.firstName) === first) points += 30;
-      return points;
-    };
-    return score(right) - score(left);
-  });
+  const wantedFirst = nameFamily(options.firstName || options.query || "");
+  const wantedLast = normalizeName(maleLastName(options.lastName ?? ""));
+  const wantedPatronymic = normalizeName(options.patronymic ?? "");
+  const score = (hit: SearchHit) => {
+    let points = 0;
+    if (hit.sameClan) points += 80;
+    if (yearDelta !== null && near?.birthYear && hit.birthYear) {
+      const diff = Math.abs(hit.birthYear - (near.birthYear + yearDelta));
+      if (diff <= 8) points += 50;
+      else if (diff <= 15) points += 25;
+      else if (diff <= 25) points += 10;
+      else points -= 10;
+    }
+    if (wantedFirst && nameFamily(hit.firstName) === wantedFirst) points += 30;
+    if (options.match) {
+      if (wantedLast && normalizeName(maleLastName(hit.lastName)) === wantedLast) points += 25;
+      if (wantedPatronymic && normalizeName(hit.patronymic) === wantedPatronymic) points += 30;
+    }
+    return points;
+  };
+  hits.sort((left, right) => score(right) - score(left));
 
   return hits.slice(0, options.limit ?? 8);
+}
+
+export async function searchPeople(options: {
+  query?: string;
+  lastName?: string;
+  firstName?: string;
+  patronymic?: string;
+  gender?: Gender;
+  excludeIds?: string[];
+  nearId?: string;
+  role?: RelationRole;
+  limit?: number;
+}): Promise<SearchHit[]> {
+  const tokens = nameTokens(
+    options.query,
+    options.lastName,
+    options.firstName,
+    options.patronymic,
+  );
+  if (tokens.length === 0) return [];
+
+  const people = await prisma.person.findMany({
+    where: {
+      AND: [
+        ...tokens.map((token) => ({
+          OR: nameVariants(token).flatMap((variant) => [
+            { lastNameNorm: { startsWith: variant } },
+            { firstNameNorm: { startsWith: variant } },
+            { patronymicNorm: { startsWith: variant } },
+            { aliases: { some: { nameNorm: { startsWith: variant } } } },
+          ]),
+        })),
+        options.gender ? { gender: options.gender } : {},
+        options.excludeIds?.length
+          ? { id: { notIn: options.excludeIds } }
+          : {},
+      ],
+    },
+    include: hitInclude,
+    take: 40,
+  });
+
+  return rankHits(people, options);
+}
+
+/**
+ * Кандидаты, когда к человеку добавляют родственника. Ищем по имени (с его
+ * вариантами: Магомед/Мухаммад), а фамилию и отчество не требуем: в селе
+ * фамилия часто идёт от имени деда и у отца с сыном разная.
+ */
+export async function matchPeople(options: {
+  firstName: string;
+  lastName?: string;
+  patronymic?: string;
+  gender?: Gender;
+  excludeIds?: string[];
+  nearId?: string;
+  role?: RelationRole;
+}): Promise<SearchHit[]> {
+  const first = normalizeName(options.firstName);
+  if (first.length < 2) return [];
+  const variants = [...new Set([first, ...nameVariants(first)])];
+
+  const people = await prisma.person.findMany({
+    where: {
+      AND: [
+        {
+          OR: variants.flatMap((variant) => [
+            { firstNameNorm: { startsWith: variant } },
+            { aliases: { some: { nameNorm: { startsWith: variant } } } },
+          ]),
+        },
+        options.gender ? { gender: options.gender } : {},
+        options.excludeIds?.length ? { id: { notIn: options.excludeIds } } : {},
+      ],
+    },
+    include: hitInclude,
+    take: 60,
+  });
+
+  // Ребёнком можно выбрать только того, у кого ещё нет родителя этого пола.
+  const near =
+    options.role === "child" && options.nearId
+      ? await prisma.person.findUnique({ where: { id: options.nearId } })
+      : null;
+  const usable = near
+    ? people.filter(
+        (person) =>
+          person.asChild.length < 2 &&
+          !person.asChild.some((link) => link.parent.gender === near.gender),
+      )
+    : people;
+
+  return rankHits(usable, { ...options, match: true, limit: 6 });
 }
 
 export async function listCensusPeople(): Promise<PersonDTO[]> {
@@ -391,6 +483,7 @@ export async function addRelation(options: {
   existingPersonId?: string;
   newPerson?: PersonInput;
   sourceNote?: string;
+  namesakeOf?: string[];
 }): Promise<FamilyDTO> {
   const person = await prisma.person.findUnique({
     where: { id: options.personId },
@@ -495,6 +588,9 @@ export async function addRelation(options: {
           role: options.role,
           relativeId: relative.id,
           created: !existingRelative,
+          ...(!existingRelative && options.namesakeOf?.length
+            ? { namesakeOf: options.namesakeOf }
+            : {}),
         },
       });
     });

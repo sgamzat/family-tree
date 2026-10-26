@@ -1,7 +1,12 @@
 import { requireKeeper, requireWriter } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { parsePersonInput } from "@/lib/names";
-import { addRelation, parseRelationRole, unlinkRelation } from "@/lib/people";
+import {
+  addRelation,
+  parseNamesakeIds,
+  parseRelationRole,
+  unlinkRelation,
+} from "@/lib/people";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +45,7 @@ export async function POST(request: Request) {
       existingPersonId,
       newPerson,
       sourceNote: String(body.sourceNote ?? "").trim(),
+      namesakeOf: parseNamesakeIds(body.namesakeOf),
     });
     return Response.json(family);
   } catch (error) {

@@ -14,6 +14,8 @@ export function usePersonSearch(options: {
   nearId?: string;
   role?: string;
   enabled?: boolean;
+  /** Подбор кандидатов при вводе родственника: главное — имя, остальное только поднимает в списке. */
+  match?: boolean;
 }) {
   const query = options.query ?? "";
   const lastName = options.lastName ?? "";
@@ -24,12 +26,15 @@ export function usePersonSearch(options: {
   const nearId = options.nearId ?? "";
   const role = options.role ?? "";
   const enabled = options.enabled ?? true;
+  const match = options.match ?? false;
   const hasQuery =
     enabled &&
-    (query.trim().length >= 2 ||
-      lastName.trim().length >= 2 ||
-      firstName.trim().length >= 2 ||
-      patronymic.trim().length >= 2);
+    (match
+      ? firstName.trim().length >= 2
+      : query.trim().length >= 2 ||
+        lastName.trim().length >= 2 ||
+        firstName.trim().length >= 2 ||
+        patronymic.trim().length >= 2);
   const requestKey = [
     query,
     lastName,
@@ -39,6 +44,7 @@ export function usePersonSearch(options: {
     excludeKey,
     nearId,
     role,
+    match ? "match" : "",
   ].join("|");
 
   const [result, setResult] = useState<{ key: string; hits: SearchHit[] }>({
@@ -57,6 +63,7 @@ export function usePersonSearch(options: {
     if (gender) params.set("gender", gender);
     if (nearId) params.set("near", nearId);
     if (role) params.set("role", role);
+    if (match) params.set("match", "1");
     for (const id of excludeKey.split(",").filter(Boolean)) {
       params.append("exclude", id);
     }
@@ -84,6 +91,7 @@ export function usePersonSearch(options: {
     excludeKey,
     nearId,
     role,
+    match,
   ]);
 
   const ready = result.key === requestKey;

@@ -4,9 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { PersonExtras } from "@/components/person-extras";
 import { PersonFields, emptyPersonForm, type PersonFormValue } from "@/components/person-fields";
-import { SuggestionList } from "@/components/suggestion-list";
+import { MatchPanel } from "@/components/match-panel";
 import { api } from "@/lib/api";
-import { parsePersonInput, type PersonDTO, type SearchHit } from "@/lib/names";
+import { formatFio, parsePersonInput, type PersonDTO, type SearchHit } from "@/lib/names";
 import { useClans } from "@/lib/use-clans";
 import { usePersonSearch } from "@/lib/use-person-search";
 
@@ -28,13 +28,14 @@ export function CreatePersonForm({ census = false }: { census?: boolean }) {
     firstName: form.firstName,
     patronymic: form.patronymic,
   });
+  const nameKey = [form.lastName, form.firstName, form.patronymic, form.gender].join("|");
+  const [confirmKey, setConfirmKey] = useState("");
+  const confirmingNew = hits.length > 0 && confirmKey === nameKey;
 
   async function submit() {
-    if (hits.length > 0) {
-      const ok = window.confirm(
-        "Похожие люди уже есть в дереве. Точно создать нового, а не нажать «Это он»?",
-      );
-      if (!ok) return;
+    if (hits.length > 0 && !confirmingNew) {
+      setConfirmKey(nameKey);
+      return;
     }
     setSaving(true);
     setError("");
@@ -47,7 +48,7 @@ export function CreatePersonForm({ census = false }: { census?: boolean }) {
       });
       const data = await api<{ person: PersonDTO }>("/api/people", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, namesakeOf: hits.map((hit) => hit.id) }),
       });
       router.push(`/people/${data.person.id}`);
       router.refresh();
@@ -97,19 +98,24 @@ export function CreatePersonForm({ census = false }: { census?: boolean }) {
           />
         }
       />
-      <SuggestionList
+      <MatchPanel
         hits={hits}
         loading={loading}
+        gender={form.gender}
+        typedName={formatFio(form)}
+        saving={saving}
+        confirmingNew={confirmingNew}
         onPick={(hit) => void pickExisting(hit)}
+        onAskNew={() => setConfirmKey(nameKey)}
+        onCancelNew={() => setConfirmKey("")}
+        onCreateNew={() => void submit()}
       />
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-      <button type="button" className="btn-primary" disabled={saving} onClick={submit}>
-        {hits.length > 0
-          ? "Это другой человек — создать нового"
-          : saving
-            ? "Сохраняем…"
-            : "Сохранить"}
-      </button>
+      {hits.length === 0 ? (
+        <button type="button" className="btn-primary" disabled={saving} onClick={() => void submit()}>
+          {saving ? "Сохраняем…" : "Сохранить"}
+        </button>
+      ) : null}
     </div>
   );
 }

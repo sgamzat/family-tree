@@ -194,8 +194,8 @@ function EchoTree({
                   aria-label={caption}
                   aria-pressed={isSelected}
                   className={`tree-node ${
-                    box.person.inCensus1886 ? "tree-node-census" : ""
-                  } ${box.current ? "tree-node-current" : ""} ${
+                    box.person.gender === "male" ? "tree-node-male" : "tree-node-female"
+                  } ${box.person.inCensus1886 ? "tree-node-census" : ""} ${box.current ? "tree-node-current" : ""} ${
                     isSelected ? "tree-node-selected" : ""
                   }`}
                   style={{ left: box.x, top: box.y }}
