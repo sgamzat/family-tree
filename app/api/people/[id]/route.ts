@@ -29,7 +29,9 @@ export async function PATCH(
     await requireEditor();
     const { id } = await context.params;
     const body = (await request.json()) as Record<string, unknown>;
-    const family = await updatePerson(id, parsePersonInput(body));
+    const family = await updatePerson(id, parsePersonInput(body), {
+      setCensus: "inCensus1886" in body,
+    });
     return Response.json(family);
   } catch (error) {
     return jsonError(error);

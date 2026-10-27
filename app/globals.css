@@ -1024,6 +1024,7 @@ body:has(.home-member) .page-main {
 }
 
 .person-more {
+  min-width: 0;
   border-top: 1px solid var(--line);
   padding-top: 0.25rem;
 }
@@ -1058,6 +1059,7 @@ body:has(.home-member) .page-main {
 }
 
 .person-more summary span {
+  min-width: 0;
   overflow: hidden;
   color: var(--muted);
   font-size: 0.85rem;
@@ -3008,6 +3010,62 @@ body:has(.echo-page) .page-main {
   margin-top: 0.25rem;
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+.echo-who .echo-nickname {
+  margin-top: 0.1rem;
+  color: #3b4842;
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
+.echo-facts {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.echo-facts > div {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.echo-facts dt {
+  color: var(--muted);
+}
+
+.echo-facts dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.person-census {
+  display: grid;
+  gap: 0.6rem;
+  border-radius: 0.75rem;
+  background: var(--census-soft);
+  padding: 0.6rem 0.75rem;
+}
+
+.person-census .person-field > span {
+  color: var(--census-ink);
+}
+
+.person-check {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--census-ink);
+  font-weight: 600;
+}
+
+.person-check input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--census);
 }
 
 .echo-who .echo-about {

@@ -26,6 +26,13 @@ export type PersonDTO = {
   isLiving: boolean | null;
   sourceNote: string;
   description: string;
+  nickname: string;
+  occupation: string;
+  burialPlace: string;
+  residence: string;
+  warService: string;
+  censusFamily: string;
+  censusAge: number | null;
   aliases: string[];
   claimedClanId: string | null;
   inCensus1886: boolean;
@@ -62,6 +69,13 @@ export type PersonInput = {
   isLiving?: boolean | null;
   sourceNote: string;
   description: string;
+  nickname: string;
+  occupation: string;
+  burialPlace: string;
+  residence: string;
+  warService: string;
+  censusFamily: string;
+  censusAge: number | null;
   aliases: string[];
   claimedClanId: string | null;
   inCensus1886: boolean;
@@ -362,6 +376,12 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
   if (body.isLiving === true || body.isLiving === "true") isLiving = true;
   if (body.isLiving === false || body.isLiving === "false") isLiving = false;
   const description = String(body.description ?? "").trim();
+  const text = (key: string, max = 300) => String(body[key] ?? "").trim().slice(0, max);
+  const censusAgeRaw = String(body.censusAge ?? "").trim();
+  const censusAge = censusAgeRaw === "" ? null : Number.parseInt(censusAgeRaw, 10);
+  if (censusAge !== null && (!Number.isFinite(censusAge) || censusAge < 0 || censusAge > 120)) {
+    throw new Error("Возраст в переписи — число от 0 до 120");
+  }
   if (description.length > DESCRIPTION_MAX) {
     throw new Error(`Описание длинновато: до ${DESCRIPTION_MAX} знаков`);
   }
@@ -378,6 +398,13 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
     ...(isLiving !== undefined ? { isLiving } : {}),
     sourceNote: String(body.sourceNote ?? "").trim(),
     description,
+    nickname: text("nickname", 120),
+    occupation: text("occupation", 200),
+    burialPlace: text("burialPlace"),
+    residence: text("residence"),
+    warService: text("warService", 1000),
+    censusFamily: text("censusFamily", 40),
+    censusAge,
     aliases: parseAliases(body.aliases),
     claimedClanId: claimedRaw || null,
     inCensus1886: body.inCensus1886 === true,

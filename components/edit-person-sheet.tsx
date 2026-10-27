@@ -40,7 +40,7 @@ export function EditPersonSheet({
     try {
       await api<FamilyDTO>(`/api/people/${person.id}`, {
         method: "PATCH",
-        body: JSON.stringify(parsePersonInput(formToInput(form, { inCensus1886: person.inCensus1886 }))),
+        body: JSON.stringify(parsePersonInput(formToInput(form))),
       });
       onClose();
       router.refresh();
@@ -96,7 +96,8 @@ export function EditPersonSheet({
       <PersonFields
         value={form}
         onChange={setForm}
-        moreHint="другие имена, откуда известно, тухум"
+        moreHint="другие имена, перепись, похоронен, война, тухум"
+        moreOpen={person.inCensus1886}
         extras={
           <PersonExtras
             value={form}

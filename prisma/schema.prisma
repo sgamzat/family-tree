@@ -26,6 +26,20 @@ model Person {
   sourceNote     String   @default("")
   /// Кем был человек: внешность, ремесло, образование, чем запомнился.
   description    String   @default("")
+  /// Прозвище: «Маллачи», «Гасан-учитель». Ищется вместе с именем.
+  nickname       String   @default("")
+  nicknameNorm   String   @default("")
+  /// Занятие, ремесло: «серебряник», «учитель».
+  occupation     String   @default("")
+  /// Где похоронен.
+  burialPlace    String   @default("")
+  /// Где жил, если уехал из села.
+  residence      String   @default("")
+  /// Участие в войне: где воевал, вернулся ли.
+  warService     String   @default("")
+  /// Перепись 1886: номер семьи по списку и возраст в 1886 году.
+  censusFamily   String   @default("")
+  censusAge      Int?
   claimedClanId  String?
   inCensus1886   Boolean  @default(false)
   createdAt      DateTime @default(now())

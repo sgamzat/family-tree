@@ -2,6 +2,7 @@
 
 import { useId, useRef, type ReactNode } from "react";
 import { DESCRIPTION_MAX, type Gender, type PersonDTO } from "@/lib/names";
+import { useOccupations } from "@/lib/use-occupations";
 
 /**
  * Поля карточки человека. Даты — одним полем: «1952», «около 1900», «весной 1943» —
@@ -15,10 +16,27 @@ export type PersonFormValue = {
   born: string;
   died: string;
   description: string;
+  nickname: string;
+  occupation: string;
+  burialPlace: string;
+  residence: string;
+  warService: string;
+  inCensus: boolean;
+  censusFamily: string;
+  /** Возраст в 1886 году, как в переписи. */
+  censusAge: string;
   sourceNote: string;
   aliases: string;
   claimedClanId: string;
 };
+
+export const CENSUS_YEAR = 1886;
+
+/** «около 1821» из возраста в переписи 1886 года. */
+export function bornFromCensusAge(age: string): string {
+  const n = Number.parseInt(age, 10);
+  return Number.isFinite(n) && n >= 0 && n <= 120 ? `около ${CENSUS_YEAR - n}` : "";
+}
 
 function dateToText(year: number | null, text: string): string {
   const words = text.trim();
@@ -44,6 +62,14 @@ export function personToForm(person: PersonDTO): PersonFormValue {
     born: dateToText(person.birthYear, person.birthDateText),
     died: dateToText(person.deathYear, person.deathDateText),
     description: person.description ?? "",
+    nickname: person.nickname ?? "",
+    occupation: person.occupation ?? "",
+    burialPlace: person.burialPlace ?? "",
+    residence: person.residence ?? "",
+    warService: person.warService ?? "",
+    inCensus: person.inCensus1886,
+    censusFamily: person.censusFamily ?? "",
+    censusAge: person.censusAge === null || person.censusAge === undefined ? "" : String(person.censusAge),
     sourceNote: person.sourceNote,
     aliases: person.aliases.join(", "),
     claimedClanId: person.claimedClanId ?? "",
@@ -58,6 +84,14 @@ export const emptyPersonForm = (gender: Gender = "male"): PersonFormValue => ({
   born: "",
   died: "",
   description: "",
+  nickname: "",
+  occupation: "",
+  burialPlace: "",
+  residence: "",
+  warService: "",
+  inCensus: false,
+  censusFamily: "",
+  censusAge: "",
   sourceNote: "",
   aliases: "",
   claimedClanId: "",
@@ -77,6 +111,14 @@ export function formToInput(form: PersonFormValue, extra: Record<string, unknown
     deathYear: died.year,
     deathDateText: died.text,
     description: form.description,
+    nickname: form.nickname,
+    occupation: form.occupation,
+    burialPlace: form.burialPlace,
+    residence: form.residence,
+    warService: form.warService,
+    inCensus1886: form.inCensus,
+    censusFamily: form.inCensus ? form.censusFamily : "",
+    censusAge: form.inCensus ? form.censusAge : "",
     sourceNote: form.sourceNote,
     aliases: form.aliases,
     claimedClanId: form.claimedClanId,
@@ -104,6 +146,8 @@ type Props = {
   /** Свёрнутый блок «Подробнее». */
   extras?: ReactNode;
   moreHint?: string;
+  /** Раскрыть «Подробнее» сразу (перепись — там номер семьи и возраст). */
+  moreOpen?: boolean;
 };
 
 export function PersonFields({
@@ -114,8 +158,11 @@ export function PersonFields({
   dateWarning,
   extras,
   moreHint,
+  moreOpen = false,
 }: Props) {
   const genderName = useId();
+  const occupationsId = useId();
+  const occupations = useOccupations();
   const genderTouched = useRef(false);
   const male = value.gender === "male";
 
@@ -172,6 +219,19 @@ export function PersonFields({
         </label>
       </div>
 
+      <label className="person-field">
+        <span>Прозвище</span>
+        <input
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          className="field"
+          value={value.nickname}
+          onChange={(event) => patch({ nickname: event.target.value })}
+          placeholder="если было"
+        />
+      </label>
+
       {lockGender ? null : (
         <fieldset className="person-field">
           <legend>Пол</legend>
@@ -219,6 +279,23 @@ export function PersonFields({
       {dateWarning ? <p className="person-form-warning">{dateWarning}</p> : null}
 
       <label className="person-field">
+        <span>Занятие, ремесло</span>
+        <input
+          autoComplete="off"
+          className="field"
+          list={occupationsId}
+          value={value.occupation}
+          onChange={(event) => patch({ occupation: event.target.value })}
+          placeholder="кузнец, серебряник, учитель"
+        />
+        <datalist id={occupationsId}>
+          {occupations.map((item) => (
+            <option key={item} value={item} />
+          ))}
+        </datalist>
+      </label>
+
+      <label className="person-field">
         <span>{male ? "Каким он был" : "Какой она была"}</span>
         <textarea
           className="field person-description"
@@ -227,15 +304,15 @@ export function PersonFields({
           onChange={(event) => patch({ description: event.target.value })}
           placeholder={
             male
-              ? "Чем занимался, какое ремесло знал, где учился, каким его помнят — внешность, характер, истории"
-              : "Чем занималась, какое ремесло знала, где училась, какой её помнят — внешность, характер, истории"
+              ? "Где учился, чем запомнился, каким его помнят — внешность, характер, истории"
+              : "Где училась, чем запомнилась, какой её помнят — внешность, характер, истории"
           }
           rows={3}
         />
       </label>
 
       {extras ? (
-        <details className="person-more">
+        <details className="person-more" open={moreOpen || undefined}>
           <summary>
             Подробнее <span>{moreHint ?? "другие имена, откуда известно"}</span>
           </summary>

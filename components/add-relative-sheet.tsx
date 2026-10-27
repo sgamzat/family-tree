@@ -276,6 +276,7 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved, onA
             onUndo={() => setDismissKey("")}
           />
         }
+        moreHint="другие имена, перепись, похоронен, война"
         extras={<PersonExtras value={form} onChange={setForm} />}
       />
       <div className="person-form-submit">

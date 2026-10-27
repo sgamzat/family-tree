@@ -35,6 +35,7 @@ export function CreatePersonForm({ census = false }: { census?: boolean }) {
     lastName: searchParams.get("lastName") ?? "",
     firstName: searchParams.get("firstName") ?? "",
     patronymic: searchParams.get("patronymic") ?? "",
+    inCensus: census,
   }));
   const [anchor, setAnchor] = useState<PersonDTO | null>(null);
   const [role, setRole] = useState<RelationRole>("child");
@@ -76,7 +77,7 @@ export function CreatePersonForm({ census = false }: { census?: boolean }) {
     setError("");
     try {
       const payload = parsePersonInput(
-        formToInput(form, census ? { inCensus1886: true, isLiving: false } : {}),
+        formToInput(form, census ? { isLiving: false } : {}),
       );
       const namesakeOf = hits.map((hit) => hit.id);
       if (attached) {
@@ -183,7 +184,8 @@ export function CreatePersonForm({ census = false }: { census?: boolean }) {
             onUndo={() => setDismissKey("")}
           />
         }
-        moreHint={attached ? undefined : "другие имена, откуда известно, тухум"}
+        moreOpen={census}
+        moreHint={attached ? "другие имена, перепись, похоронен, война" : "другие имена, перепись, похоронен, война, тухум"}
         extras={
           attached ? (
             <PersonExtras value={form} onChange={setForm} />

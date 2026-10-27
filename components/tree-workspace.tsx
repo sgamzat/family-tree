@@ -54,6 +54,39 @@ function RelationRow({
   );
 }
 
+/** Короткие пункты карточки: пустые не показываем. */
+function PersonFacts({ person }: { person: PersonDTO }) {
+  const male = person.gender === "male";
+  const census =
+    person.inCensus1886 && (person.censusFamily || person.censusAge !== null)
+      ? [
+          person.censusFamily ? `семья № ${person.censusFamily}` : "",
+          person.censusAge !== null ? `возраст ${person.censusAge}` : "",
+        ]
+          .filter(Boolean)
+          .join(", ")
+      : "";
+  const rows: Array<[string, string]> = [
+    ["Занятие", person.occupation],
+    ["Перепись 1886", census],
+    [male ? "Где жил" : "Где жила", person.residence],
+    ["Война", person.warService],
+    [male ? "Похоронен" : "Похоронена", person.burialPlace],
+  ];
+  const shown = rows.filter(([, value]) => value && value.trim());
+  if (shown.length === 0) return null;
+  return (
+    <dl className="echo-facts">
+      {shown.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function TreeWorkspace({
   family,
   graph,
@@ -285,6 +318,9 @@ export function TreeWorkspace({
           <p className="echo-kicker">Выбран</p>
         )}
         <h1>{formatFio(family.person) || family.person.firstName}</h1>
+        {family.person.nickname ? (
+          <p className="echo-nickname">прозвище «{family.person.nickname}»</p>
+        ) : null}
         {parentLine ? <p className="echo-parent">{parentLine}</p> : null}
         {me.isMe ? (
           <p className="echo-me">
@@ -313,6 +349,7 @@ export function TreeWorkspace({
             .filter(Boolean)
             .join(" · ")}
         </p>
+        <PersonFacts person={family.person} />
         {family.person.description ? (
           <div className="echo-about">
             <p className="echo-about-title">
