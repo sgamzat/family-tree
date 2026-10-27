@@ -40,6 +40,8 @@ export type TreeLine = { d: string; kind: "parent" | "spouse" };
 export type TreeLayout = {
   boxes: PlacedBox[];
   lines: TreeLine[];
+  /** Высота горизонтали семьи, к которой ребёнок спускается от родителей. */
+  busOf: Record<string, number>;
   width: number;
   height: number;
 };
@@ -100,7 +102,7 @@ export function layoutTree(
   const byId = new Map(people.map((person) => [person.id, person]));
   const ids = [...byId.keys()];
   if (ids.length === 0) {
-    return { boxes: [], lines: [], width: BOX_W + PAD * 2, height: BOX_H + PAD * 2 };
+    return { boxes: [], lines: [], busOf: {}, width: BOX_W + PAD * 2, height: BOX_H + PAD * 2 };
   }
   const visible = (id: string) => byId.has(id);
   const parentsOf = (id: string) =>
@@ -446,8 +448,10 @@ export function layoutTree(
     });
   }
 
+  const busOf: Record<string, number> = {};
   for (const family of families.values()) {
     const busY = rowY[family.unit.row] + BOX_H + BUS_TOP + family.lane * LANE_STEP;
+    for (const childId of family.children) busOf[childId] = r1(busY);
     const tops = topsOf(family);
     // Один ребёнок почти точно под парой — прямая линия без ступеньки.
     if (family.children.length === 1 && tops.length === 1) {
@@ -474,7 +478,48 @@ export function layoutTree(
 
   const width = Math.max(...boxes.map((box) => box.x + BOX_W)) + PAD;
   const height = Math.max(...boxes.map((box) => box.y + BOX_H)) + PAD;
-  return { boxes, lines, width: r1(width), height: r1(height) };
+  return { boxes, lines, busOf, width: r1(width), height: r1(height) };
+}
+
+export type RouteStep = { id: string; via: "parent" | "child" | "spouse" | null };
+
+/**
+ * Линия пути родства по ветвям древа: от родителя вниз до горизонтали семьи,
+ * по ней к ребёнку и вниз в его карточку; между супругами — по горизонтали.
+ * null — кого-то из пути нет на этой схеме.
+ */
+export function routePath(layout: TreeLayout, steps: RouteStep[]): string | null {
+  const at = new Map(layout.boxes.map((box) => [box.person.id, box]));
+  if (steps.some((step) => !at.has(step.id))) return null;
+  const parts: string[] = [];
+  for (let i = 1; i < steps.length; i += 1) {
+    const from = at.get(steps[i - 1].id)!;
+    const to = at.get(steps[i].id)!;
+    const via = steps[i].via;
+    if (via === "spouse") {
+      if (Math.abs(from.y - to.y) < 1) {
+        const leftToRight = from.x < to.x;
+        const y = from.y + BOX_H / 2;
+        parts.push(
+          `M ${r1(leftToRight ? from.x + BOX_W : from.x)} ${r1(y)} H ${r1(leftToRight ? to.x : to.x + BOX_W)}`,
+        );
+      } else {
+        parts.push(
+          `M ${r1(from.x + BOX_W / 2)} ${r1(from.y + BOX_H / 2)} L ${r1(to.x + BOX_W / 2)} ${r1(to.y + BOX_H / 2)}`,
+        );
+      }
+      continue;
+    }
+    const parent = via === "parent" ? to : from;
+    const child = via === "parent" ? from : to;
+    const parentX = parent.x + BOX_W / 2;
+    const childX = child.x + BOX_W / 2;
+    const bus = layout.busOf[child.person.id] ?? (parent.y + BOX_H + child.y) / 2;
+    parts.push(
+      `M ${r1(parentX)} ${r1(parent.y + BOX_H)} V ${r1(bus)} H ${r1(childX)} V ${r1(child.y)}`,
+    );
+  }
+  return parts.join(" ");
 }
 
 /** Порядок людей внутри пары: цепочка супругов, женщина слева у простой пары. */

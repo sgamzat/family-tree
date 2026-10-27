@@ -93,8 +93,9 @@ function bloodRelation(
   if (up === 1 && down === 1) return byGender(gender, "брат", "сестра");
   if (down === 1 && up >= 2) {
     if (up === 2) return byGender(gender, "дядя", "тётя");
-    if (up === 3) return byGender(gender, "двоюродный дед", "двоюродная бабушка");
-    return byGender(gender, "дядя", "тётя");
+    // Брат или сестра предка: брат прадеда — двоюродный прадед.
+    const elder = ancestorWord(up - 1, gender);
+    return `${byGender(gender, "двоюродный", "двоюродная")} ${elder}`;
   }
   if (up === 1 && down >= 2) {
     if (down === 2) return byGender(gender, "племянник", "племянница");
@@ -120,9 +121,10 @@ function describeBlood(types: KinStepType[], to: PersonDTO): string | null {
   if (up + down !== types.length) return null;
   const firstChild = types.findIndex((type) => type === "child");
   if (firstChild === -1) return bloodRelation(up, 0, to.gender);
-  const onlyParentsThenChildren = types
-    .slice(0, firstChild)
-    .every((type) => type === "parent");
+  // Кровное родство — только «вверх, потом вниз». Путь «вверх-вниз-вверх» не описывается так.
+  const onlyParentsThenChildren =
+    types.slice(0, firstChild).every((type) => type === "parent") &&
+    types.slice(firstChild).every((type) => type === "child");
   if (!onlyParentsThenChildren) return null;
   return bloodRelation(up, down, to.gender);
 }
@@ -180,6 +182,27 @@ function inLawRelation(
   return null;
 }
 
+/** Общий ребёнок, а брак не записан: это супруги. */
+function coParents(types: KinStepType[], to: PersonDTO): string | null {
+  if (types.length === 2 && types[0] === "child" && types[1] === "parent") {
+    return byGender(to.gender, "муж", "жена");
+  }
+  return null;
+}
+
+/**
+ * Ключ линии без «вершины»: путь через деда и тот же путь через бабушку —
+ * одна линия родства, а не две.
+ */
+function lineKey(relation: string, steps: Array<{ id: string; via: KinStepType | null }>): string {
+  const types = steps.slice(1).map((step) => step.via);
+  const turn = types.indexOf("child");
+  const apex = turn > 0 && types.slice(0, turn).every((type) => type === "parent") ? turn : -1;
+  return `${relation}|${steps
+    .map((step, index) => (index === apex ? "*" : step.id))
+    .join(">")}`;
+}
+
 function viaWord(type: KinStepType, person: PersonDTO): string {
   if (type === "parent") return byGender(person.gender, "отец", "мать");
   if (type === "child") return byGender(person.gender, "сын", "дочь");
@@ -226,7 +249,7 @@ export function findKinship(
     to,
     steps.map((step) => step.person),
   );
-  const relation = blood ?? inLaw ?? `родственник через ${types.length} связей`;
+  const relation = blood ?? inLaw ?? coParents(types, to) ?? `родственник через ${types.length} связей`;
   const dativeName = formatFio(from);
 
   return {
@@ -323,7 +346,7 @@ function labelPath(
     steps.map((step) => step.person),
   );
   return {
-    relation: blood ?? inLaw ?? `родственник через ${types.length} связей`,
+    relation: blood ?? inLaw ?? coParents(types, to) ?? `родственник через ${types.length} связей`,
     steps,
   };
 }
@@ -383,6 +406,25 @@ function collectSimplePaths(
   return found;
 }
 
+/**
+ * Путь-«крюк»: двое несоседних людей в нём связаны напрямую. Например,
+ * «я → отец → его жена», когда жена отца — моя мать: это не отдельная линия
+ * родства, а обход прямой связи, и называть его «мачехой» нельзя.
+ */
+function hasShortcut(graph: IndexedGraph, ids: string[]): boolean {
+  for (let i = 0; i < ids.length; i += 1) {
+    const direct = new Set([
+      ...(graph.parentsOf.get(ids[i]) ?? []),
+      ...(graph.childrenOf.get(ids[i]) ?? []),
+      ...(graph.spousesOf.get(ids[i]) ?? []),
+    ]);
+    for (let j = i + 2; j < ids.length; j += 1) {
+      if (direct.has(ids[j])) return true;
+    }
+  }
+  return false;
+}
+
 export function findAllKinshipPaths(
   graph: KinGraph,
   fromId: string,
@@ -408,13 +450,21 @@ export function findAllKinshipPaths(
   const primaryKey = pathSequenceKey(primary.steps.map((step) => step.person.id));
   const primarySet = pathSetKey(primary.steps.map((step) => step.person.id));
   const alternates: KinshipPath[] = [];
+  const asRaw = (path: KinshipPath) =>
+    path.steps.map((step) => ({ id: step.person.id, via: step.via }));
+  const seenLines = new Set([lineKey(primary.relation, asRaw(primary))]);
 
   for (const raw of collectSimplePaths(indexed, fromId, toId)) {
     const ids = raw.map((item) => item.id);
+    if (hasShortcut(indexed, ids)) continue;
     if (pathSequenceKey(ids) === primaryKey || pathSetKey(ids) === primarySet) {
       continue;
     }
-    alternates.push(labelPath(indexed, primaryResult.from, primaryResult.to, raw));
+    const path = labelPath(indexed, primaryResult.from, primaryResult.to, raw);
+    const key = lineKey(path.relation, raw);
+    if (seenLines.has(key)) continue;
+    seenLines.add(key);
+    alternates.push(path);
     if (alternates.length >= MAX_PATHS - 1) break;
   }
 
