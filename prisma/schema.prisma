@@ -2,6 +2,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// База древа — главное достояние: люди, связи, роды, журнал и заявки.
+// Пользователи хранятся отдельно (data/accounts, lib/accounts.ts).
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
@@ -33,7 +35,6 @@ model Person {
   asChild      ParentChild[] @relation("Child")
   marriagesA   Marriage[]    @relation("SpouseA")
   marriagesB   Marriage[]    @relation("SpouseB")
-  account      User?         @relation("Account")
 
   @@index([lastNameNorm])
   @@index([firstNameNorm])
@@ -96,26 +97,44 @@ model Marriage {
   @@index([personBId])
 }
 
-model User {
-  id           String   @id @default(cuid())
-  name         String
-  login        String   @unique
-  passwordHash String
-  role         String
-  /// Карточка этого жителя в древе («Это я»). Одна карточка — один аккаунт.
-  personId     String?  @unique
-  createdAt    DateTime @default(now())
-
-  person Person? @relation("Account", fields: [personId], references: [id], onDelete: SetNull)
-}
-
+/// Журнал: кто, что и когда изменил. Записи только добавляются.
 model ChangeLog {
   id        String   @id @default(cuid())
   action    String
   personId  String?
+  /// id аккаунта из data/accounts (без внешнего ключа — другая база).
+  actorId   String?
   payload   String   @default("{}")
   createdAt DateTime @default(now())
 
   @@index([personId])
+  @@index([actorId])
   @@index([createdAt])
+}
+
+/// Заявка на разрушающее действие: удаление человека или слияние дублей.
+/// Выполняется после подтверждения владельцем или хранителем (не автором заявки).
+model ChangeRequest {
+  id              String    @id @default(cuid())
+  /// "person.delete" | "person.merge"
+  kind            String
+  /// Кого удаляем; при слиянии — карточка, которая исчезнет.
+  personId        String
+  /// При слиянии — карточка, которая останется.
+  keepId          String?
+  reason          String    @default("")
+  /// Снимок на момент заявки: как выглядел человек и его связи.
+  snapshot        String    @default("{}")
+  /// "pending" | "approved" | "rejected" | "failed"
+  status          String    @default("pending")
+  requestedById   String
+  requestedByName String
+  decidedById     String?
+  decidedByName   String?
+  decidedAt       DateTime?
+  decisionNote    String    @default("")
+  createdAt       DateTime  @default(now())
+
+  @@index([status])
+  @@index([personId])
 }

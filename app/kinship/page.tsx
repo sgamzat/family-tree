@@ -1,4 +1,5 @@
 import { KinshipFinder } from "@/components/kinship-finder";
+import { pageUser } from "@/lib/auth";
 import { getFamily } from "@/lib/people";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export default async function KinshipPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
+  await pageUser("/kinship");
   const { from, to } = await searchParams;
   const [family, target] = await Promise.all([
     from ? getFamily(from) : null,

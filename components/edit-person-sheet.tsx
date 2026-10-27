@@ -12,16 +12,27 @@ import { useClans } from "@/lib/use-clans";
 type Props = {
   person: PersonDTO;
   foundedClans: ClanDTO[];
-  keeper?: boolean;
+  /** "now" — владелец удаляет сразу; "request" — заявка хранителям; null — нельзя. */
+  deleteMode?: "now" | "request" | null;
+  hasPendingDelete?: boolean;
   onClose: () => void;
 };
 
-export function EditPersonSheet({ person, foundedClans, keeper = false, onClose }: Props) {
+export function EditPersonSheet({
+  person,
+  foundedClans,
+  deleteMode = null,
+  hasPendingDelete = false,
+  onClose,
+}: Props) {
   const router = useRouter();
   const { clans, addClan } = useClans();
   const [form, setForm] = useState(() => personToForm(person));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [sent, setSent] = useState(false);
 
   async function save() {
     setSaving(true);
@@ -50,14 +61,28 @@ export function EditPersonSheet({ person, foundedClans, keeper = false, onClose 
           : `\n\nЭтот человек — родоначальник родов ${foundedClans
               .map((clan) => `«${clan.name}»`)
               .join(", ")}. После удаления у этих родов не будет родоначальника, и потомки перестанут вычислять тухум. Удалить всё равно?`;
-    const confirmed = window.confirm(
-      `Удалить ${name} из дерева? Связи с родственниками тоже пропадут, сами люди останутся.${founderNote}`,
-    );
-    if (!confirmed) return;
+    if (deleteMode === "now") {
+      const confirmed = window.confirm(
+        `Удалить ${name} из дерева? Связи с родственниками тоже пропадут, сами люди останутся. В журнале останется полный снимок — человека можно будет восстановить.${founderNote}`,
+      );
+      if (!confirmed) return;
+    } else if (!reason.trim()) {
+      setError("Напишите, почему его нужно удалить: хранителю будет проще решить");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      await api(`/api/people/${person.id}`, { method: "DELETE" });
+      const result = await api<{ ok?: boolean; pending?: boolean }>(`/api/people/${person.id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      if (result.pending) {
+        setSent(true);
+        setSaving(false);
+        router.refresh();
+        return;
+      }
       router.push("/");
       router.refresh();
     } catch (err) {
@@ -86,15 +111,42 @@ export function EditPersonSheet({ person, foundedClans, keeper = false, onClose 
         <button type="button" className="btn-primary" disabled={saving} onClick={save}>
           {saving ? "Сохраняем…" : "Сохранить"}
         </button>
-        {keeper ? (
-          <button
-            type="button"
-            className="btn-danger"
-            disabled={saving}
-            onClick={remove}
-          >
+        {deleteMode === "now" ? (
+          <button type="button" className="btn-danger" disabled={saving} onClick={remove}>
             Удалить человека
           </button>
+        ) : null}
+        {deleteMode === "request" && hasPendingDelete ? (
+          <p className="text-sm text-[var(--muted)]">
+            Заявка на удаление уже ждёт подтверждения хранителя.
+          </p>
+        ) : null}
+        {deleteMode === "request" && !hasPendingDelete && sent ? (
+          <p className="text-sm text-[var(--accent)]">
+            Заявка отправлена. Человек будет удалён, когда её подтвердит хранитель.
+          </p>
+        ) : null}
+        {deleteMode === "request" && !hasPendingDelete && !sent && !asking ? (
+          <button type="button" className="btn-danger" disabled={saving} onClick={() => setAsking(true)}>
+            Предложить удаление
+          </button>
+        ) : null}
+        {deleteMode === "request" && !hasPendingDelete && !sent && asking ? (
+          <div className="grid gap-2">
+            <label className="grid gap-1">
+              <span className="text-sm font-medium">Почему его нужно удалить?</span>
+              <textarea
+                className="field"
+                rows={2}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Например: внесён по ошибке, такого человека не было"
+              />
+            </label>
+            <button type="button" className="btn-danger" disabled={saving} onClick={remove}>
+              {saving ? "Отправляем…" : "Отправить заявку хранителям"}
+            </button>
+          </div>
         ) : null}
       </div>
     </Sheet>

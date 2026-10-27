@@ -1,8 +1,9 @@
-ARG NODE_IMAGE=node:20-bookworm-slim
+# Node 22: служебные скрипты (бэкап, разделение баз) используют встроенный node:sqlite.
+ARG NODE_IMAGE=node:22-bookworm-slim
 FROM ${NODE_IMAGE}
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates rclone \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -60,12 +61,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate && npm run build
 
 ENV NODE_ENV=production
-ENV DATABASE_URL=file:/data/family-tree.db
+# Древо и пользователи хранятся отдельно; копии — в /backups.
+ENV DATABASE_URL=file:/data/tree/tree.db \
+    ACCOUNTS_DIR=/data/accounts \
+    BACKUP_DIR=/backups
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3000
-VOLUME /data
+VOLUME ["/data", "/backups"]
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

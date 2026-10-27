@@ -1,4 +1,4 @@
-import { requireWriter } from "@/lib/auth";
+import { requireEditor, requireViewer } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { parseGender, parsePersonInput } from "@/lib/names";
 import {
@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
+    await requireViewer();
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") ?? "";
     const lastName = searchParams.get("lastName") ?? "";
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireWriter();
+    await requireEditor();
     const body = (await request.json()) as Record<string, unknown>;
     const person = await createPerson(parsePersonInput(body), {
       namesakeOf: parseNamesakeIds(body.namesakeOf),

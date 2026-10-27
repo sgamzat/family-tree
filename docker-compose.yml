@@ -1,18 +1,35 @@
+# Древо села: сайт + сервис резервных копий.
+# Данные:  ./data/tree/tree.db        — древо (главное, бэкап каждые 6 ч)
+#          ./data/accounts/           — пользователи и журнал входов (бэкап раз в сутки)
+# Копии:   ./backups/                 — локально; в облако S3 — зашифрованные (см. .env)
+x-app: &app
+  image: family-tree-web
+  pull_policy: never
+  env_file: .env
+  environment:
+    DATABASE_URL: file:/data/tree/tree.db
+    ACCOUNTS_DIR: /data/accounts
+    BACKUP_DIR: /backups
+  volumes:
+    - ./data:/data
+    - ./backups:/backups
+  restart: unless-stopped
+
 services:
   web:
-    image: family-tree-web
-    pull_policy: never
+    <<: *app
     build:
       context: .
       pull: false
       additional_contexts:
-        node-base: docker-image://node:20-bookworm-slim
+        node-base: docker-image://node:22-bookworm-slim
       args:
         NODE_IMAGE: node-base
     ports:
       - "3000:3000"
-    environment:
-      DATABASE_URL: file:/data/family-tree.db
-    volumes:
-      - ./data:/data
-    restart: unless-stopped
+
+  backup:
+    <<: *app
+    entrypoint: ["node", "scripts/backup.mjs", "--loop"]
+    depends_on:
+      - web

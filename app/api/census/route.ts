@@ -1,4 +1,4 @@
-import { requireWriter } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { markPersonInCensus1886 } from "@/lib/people";
 
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    await requireWriter();
+    await requireEditor();
     const body = (await request.json()) as { personId?: unknown };
     const personId = String(body.personId ?? "").trim();
     if (!personId) return jsonError(new Error("Не указан человек"));

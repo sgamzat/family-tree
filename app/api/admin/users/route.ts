@@ -1,51 +1,33 @@
-import { Prisma } from "@prisma/client";
-import {
-  assertAccount,
-  hashPassword,
-  normalizeLogin,
-  parseRole,
-  requireKeeper,
-} from "@/lib/auth";
-import { writeChangeLog } from "@/lib/changelog";
-import { prisma } from "@/lib/db";
+import { appendAuthEvent, createAccount, normalizeLogin } from "@/lib/accounts";
+import { assertAccount, hashPassword, parseRole, requireOwner } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
+/** Новый аккаунт. Заводит только владелец. */
 export async function POST(request: Request) {
   try {
-    const keeper = await requireKeeper();
+    const owner = await requireOwner();
     const body = (await request.json()) as Record<string, unknown>;
     const name = String(body.name ?? "").trim();
     const login = normalizeLogin(body.login);
     const password = String(body.password ?? "");
-    const role = parseRole(body.role);
+    const role = parseRole(body.role ?? "editor");
     assertAccount({ name, login, password });
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        login,
-        passwordHash: hashPassword(password),
-        role,
-      },
+    const account = createAccount({
+      name,
+      login,
+      passwordHash: await hashPassword(password),
+      role,
+      createdBy: owner.id,
     });
-    await writeChangeLog(prisma, {
-      action: "user.create",
-      actor: keeper.name,
-      payload: { login, role, name },
-    });
+    appendAuthEvent({ type: "account.create", userId: account.id, login, by: owner.id, details: { role } });
     return Response.json(
-      { user: { id: user.id, name: user.name, login: user.login, role: user.role } },
+      { user: { id: account.id, name: account.name, login: account.login, role: account.role } },
       { status: 201 },
     );
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return jsonError(new Error("Такой логин уже есть"));
-    }
     return jsonError(error);
   }
 }

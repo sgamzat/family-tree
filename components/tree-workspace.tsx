@@ -60,6 +60,9 @@ export function TreeWorkspace({
   doubledById,
   doubledAncestors,
   keeper = false,
+  owner = false,
+  canEdit = true,
+  pendingRequest = null,
   kinWith = null,
   me = { loggedIn: false, isMe: false, canClaim: false },
   openRole = null,
@@ -70,6 +73,12 @@ export function TreeWorkspace({
   doubledById?: Record<string, number>;
   doubledAncestors: DoubledAncestor[];
   keeper?: boolean;
+  /** Владелец удаляет сразу, остальные — заявкой на подтверждение. */
+  owner?: boolean;
+  /** false — только просмотр: кнопок правки нет. */
+  canEdit?: boolean;
+  /** Заявка на удаление или слияние этого человека, ждущая подтверждения. */
+  pendingRequest?: { kind: string; requestedByName: string; reason: string } | null;
   /** Открыть сразу родство с этим человеком (ссылка «Показать на карте»). */
   kinWith?: PersonDTO | null;
   /** Связан ли этот человек с аккаунтом того, кто смотрит. */
@@ -322,16 +331,18 @@ export function TreeWorkspace({
               Пока не доведена до живущих. Знаете детей или внуков? Добавьте их, и
               линия соединится с сегодняшним днём.
             </p>
-            <button
-              type="button"
-              className="echo-line-action"
-              onClick={() => {
-                setSibling(false);
-                setRole("child");
-              }}
-            >
-              Добавить ребёнка
-            </button>
+            {canEdit ? (
+              <button
+                type="button"
+                className="echo-line-action"
+                onClick={() => {
+                  setSibling(false);
+                  setRole("child");
+                }}
+              >
+                Добавить ребёнка
+              </button>
+            ) : null}
           </div>
         )
       ) : pathUp ? (
@@ -360,7 +371,7 @@ export function TreeWorkspace({
             Линия пока не дошла до переписи. Добавьте отца, деда, прадеда — кого
             помните. Когда цепочка дойдёт до человека из переписи, она соединится.
           </p>
-          {!family.father ? (
+          {!canEdit ? null : !family.father ? (
             <button type="button" className="echo-line-action" onClick={() => setRole("father")}>
               Добавить отца
             </button>
@@ -398,6 +409,16 @@ export function TreeWorkspace({
 
       {error ? <p className="echo-warn">{error}</p> : null}
 
+      {pendingRequest ? (
+        <p className="echo-warn">
+          Ждёт подтверждения хранителя:{" "}
+          {pendingRequest.kind === "person.merge" ? "слияние с другой карточкой" : "удаление"}.
+          Заявку подал(а) {pendingRequest.requestedByName}
+          {pendingRequest.reason ? ` — «${pendingRequest.reason}»` : ""}.
+        </p>
+      ) : null}
+
+      {canEdit ? (
       <div className="echo-actions">
         <button type="button" onClick={() => setRole("spouse")}>
           {family.person.gender === "male" ? "Добавить супругу" : "Добавить супруга"}
@@ -437,6 +458,9 @@ export function TreeWorkspace({
           Изменить карточку
         </button>
       </div>
+      ) : (
+        <p className="echo-note">У вас доступ только для просмотра.</p>
+      )}
 
       <div className="echo-links">
         {family.father ? (
@@ -483,6 +507,7 @@ export function TreeWorkspace({
 
       <div className="echo-more">
         <Link href={`/kinship?from=${personId}`}>Кем приходится</Link>
+        {keeper ? <Link href={`/admin/log?person=${personId}`}>История изменений</Link> : null}
         {keeper ? <Link href="/duplicates">Вероятные дубли</Link> : null}
       </div>
     </aside>
@@ -612,7 +637,8 @@ export function TreeWorkspace({
         <EditPersonSheet
           person={family.person}
           foundedClans={family.foundedClans}
-          keeper={keeper}
+          deleteMode={owner ? "now" : canEdit ? "request" : null}
+          hasPendingDelete={Boolean(pendingRequest)}
           onClose={() => setEditing(false)}
         />
       ) : null}

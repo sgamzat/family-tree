@@ -1,4 +1,4 @@
-import { requireWriter } from "@/lib/auth";
+import { requireEditor, requireViewer } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { createClan, listClans } from "@/lib/clan";
 
@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await requireViewer();
     const clans = await listClans();
     return Response.json({ clans });
   } catch (error) {
@@ -15,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireWriter();
+    await requireEditor();
     const body = (await request.json()) as Record<string, unknown>;
     const clan = await createClan({
       name: String(body.name ?? ""),

@@ -2,6 +2,7 @@ import "server-only";
 
 import { writeChangeLog } from "@/lib/changelog";
 import { toClanDto } from "@/lib/clan";
+import { moveAccountLink } from "@/lib/accounts";
 import { prisma } from "@/lib/db";
 import {
   nameFamily,
@@ -306,14 +307,11 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
       },
     });
 
-    // Аккаунт, связанный с удаляемой карточкой, переходит на оставшуюся (если она свободна).
-    const keepAccount = await tx.user.findUnique({ where: { personId: keepId } });
-    if (!keepAccount) {
-      await tx.user.updateMany({ where: { personId: dropId }, data: { personId: keepId } });
-    }
-
     await tx.person.delete({ where: { id: dropId } });
   });
+
+  // Аккаунт, связанный с исчезнувшей карточкой, переходит на оставшуюся.
+  moveAccountLink(dropId, keepId);
 
   const merged = await prisma.person.findUnique({
     where: { id: keepId },

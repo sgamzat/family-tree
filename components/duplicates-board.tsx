@@ -53,10 +53,13 @@ export function DuplicatesBoard() {
     setBusy(`${keep.id}:${drop.id}`);
     setError("");
     try {
-      await api<{ person: PersonDTO }>("/api/duplicates", {
+      const result = await api<{ person?: PersonDTO; pending?: boolean }>("/api/duplicates", {
         method: "POST",
         body: JSON.stringify({ keepId: keep.id, dropId: drop.id }),
       });
+      if (result.pending) {
+        setError("Заявка на слияние отправлена — её подтвердит владелец или другой хранитель.");
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось слить");

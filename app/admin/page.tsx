@@ -1,106 +1,174 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import fs from "fs";
+import path from "path";
+import { AdminAccountRow } from "@/components/admin-account-row";
 import { AdminUsers } from "@/components/admin-users";
-import { currentUser } from "@/lib/auth";
+import { listAccounts, readAuthEvents } from "@/lib/accounts";
+import { pageOwner } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { formatFio } from "@/lib/names";
 
 export const dynamic = "force-dynamic";
 
-const ACTION_LABEL: Record<string, string> = {
-  "person.create": "добавил человека",
-  "person.update": "изменил карточку",
-  "person.delete": "удалил человека",
-  "person.merge": "слил дубли",
-  "person.census": "отметил в переписи",
-  "relation.add": "добавил родство",
-  "relation.unlink": "отвязал родство",
-  "user.create": "открыл вход",
-  "user.link": "отметил свою карточку",
-  "user.unlink": "снял отметку со своей карточки",
+const EVENT_LABEL: Record<string, string> = {
+  "login.ok": "вошёл(а)",
+  "login.fail": "неверный пароль",
+  "login.locked": "вход временно заблокирован",
+  logout: "вышел(а)",
+  "logout.all": "вышел(а) на всех устройствах",
+  "account.create": "аккаунт создан",
+  "account.update": "аккаунт изменён",
+  "password.reset": "пароль сменён",
 };
 
-function when(date: Date) {
+function when(value: string | Date) {
   return new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+  }).format(new Date(value));
 }
 
-export default async function AdminPage() {
-  const user = await currentUser();
-  if (!user) redirect("/login?next=/admin");
-  if (user.role !== "admin") redirect("/");
+type BackupStatus = {
+  at?: string;
+  tree?: { file: string; bytes: number; ok: boolean };
+  accounts?: { file: string; bytes: number };
+  offsite?: { ok: boolean; at?: string; error?: string };
+};
 
-  const [people, census, users, changes] = await Promise.all([
+function readBackupStatus(): BackupStatus | null {
+  const dir = process.env.BACKUP_DIR || path.join(process.cwd(), "backups");
+  try {
+    return JSON.parse(fs.readFileSync(path.join(dir, "status.json"), "utf8")) as BackupStatus;
+  } catch {
+    return null;
+  }
+}
+
+/** Жители и доступ — только для владельца. */
+export default async function AdminPage() {
+  await pageOwner("/admin");
+  const accounts = listAccounts();
+  const linked = accounts.map((account) => account.personId).filter((id): id is string => Boolean(id));
+  const [people, census, peopleNames] = await Promise.all([
     prisma.person.count(),
     prisma.person.count({ where: { inCensus1886: true } }),
-    prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.changeLog.findMany({ orderBy: { createdAt: "desc" }, take: 30 }),
+    prisma.person.findMany({
+      where: { id: { in: linked } },
+      select: { id: true, lastName: true, firstName: true, patronymic: true },
+    }),
   ]);
+  const nameById = new Map<string, string>(
+    peopleNames.map((row) => [row.id, formatFio(row) || row.firstName]),
+  );
+  const loginById = new Map(accounts.map((account) => [account.id, account.name]));
+  const events = readAuthEvents(40);
+  const backup = readBackupStatus();
 
   return (
-    <div className="grid gap-8">
+    <div className="admin-page">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Хранителю</h1>
-        <p className="mt-1 text-[var(--muted)]">
-          Древо одно. Здесь хранитель видит, кто что дописал, и открывает вход
-          тем, кто будет заполнять — обычно это 10–20 человек.
+        <h1>Жители и доступ</h1>
+        <p className="admin-lead">
+          Древо видно только тем, кому вы открыли вход. Роли: «только смотрит»,
+          «дописывает», «хранитель» — хранитель видит журнал и подтверждает удаления.
         </p>
-        <p className="mt-3 text-sm text-[var(--muted)]">
-          В древе {people}. В переписи {census}. Входов {users.length}.
-        </p>
-        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          <Link href="/duplicates" className="font-medium text-[var(--accent)]">
-            Вероятные дубли
-          </Link>
-          <Link href="/census" className="font-medium text-[var(--accent)]">
-            Перепись 1886 года
+        <p className="admin-meta">
+          В древе {people} чел., в переписи {census}. Аккаунтов {accounts.length}.{" "}
+          <Link href="/admin/log" className="text-[var(--accent)]">
+            Журнал изменений
+          </Link>{" "}
+          ·{" "}
+          <Link href="/admin/requests" className="text-[var(--accent)]">
+            Подтверждения
           </Link>
         </p>
       </div>
 
       <section className="grid gap-3">
-        <h2 className="text-lg font-semibold">Кто дописывает</h2>
-        <ul className="grid">
-          {users.map((account) => (
-            <li key={account.id} className="admin-row">
-              <span className="font-medium">{account.name}</span>
-              <span className="text-sm text-[var(--muted)]">
-                {account.login} · {account.role === "admin" ? "хранитель" : "дописывает"}
+        <h2>Жители</h2>
+        <ul className="grid gap-2">
+          {accounts.map((account) => (
+            <AdminAccountRow
+              key={account.id}
+              account={{
+                id: account.id,
+                name: account.name,
+                login: account.login,
+                role: account.role,
+                active: account.active,
+                personName: account.personId ? (nameById.get(account.personId) ?? null) : null,
+                createdAt: account.createdAt,
+              }}
+            />
+          ))}
+        </ul>
+      </section>
+
+      <section className="grid gap-3">
+        <h2>Открыть вход новому жителю</h2>
+        <p className="admin-meta">
+          Передайте человеку логин и пароль лично. Пароль он может попросить сменить у вас.
+        </p>
+        <AdminUsers />
+      </section>
+
+      <section className="grid gap-3" id="backups">
+        <h2>Резервные копии</h2>
+        {backup?.at ? (
+          <div className="admin-card">
+            <p>
+              Последняя копия: <b>{when(backup.at)}</b>
+              {backup.tree ? ` · древо ${Math.round(backup.tree.bytes / 1024)} КБ` : ""}
+              {backup.tree && !backup.tree.ok ? (
+                <span className="admin-tag is-danger"> проверка не прошла</span>
+              ) : null}
+            </p>
+            <p className="admin-meta">
+              {backup.offsite
+                ? backup.offsite.ok
+                  ? `Копия в облаке: ${backup.offsite.at ? when(backup.offsite.at) : "отправлена"}`
+                  : `Копия в облаке не отправилась: ${backup.offsite.error ?? "ошибка"}`
+                : "Отправка в облако не настроена (OFFSITE_REMOTE)."}
+            </p>
+          </div>
+        ) : (
+          <p className="admin-meta">
+            Автоматических копий пока нет — проверьте, что запущен сервис backup.
+          </p>
+        )}
+        <div className="admin-actions">
+          <a href="/api/admin/backup?what=tree" className="btn-secondary">
+            Скачать копию древа
+          </a>
+          <a href="/api/admin/backup?what=accounts" className="btn-secondary">
+            Скачать копию аккаунтов
+          </a>
+        </div>
+        <p className="admin-meta">
+          Копия аккаунтов содержит хеши паролей — храните её так же бережно, как ключи.
+        </p>
+      </section>
+
+      <section className="grid gap-2">
+        <h2>Входы</h2>
+        {events.length === 0 ? <p className="admin-meta">Пока записей нет.</p> : null}
+        <ul className="log-list">
+          {events.map((event, index) => (
+            <li key={`${event.at}-${index}`} className="log-row">
+              <span>
+                <b>{(event.userId && loginById.get(event.userId)) || event.login || "—"}</b> ·{" "}
+                {EVENT_LABEL[event.type] ?? event.type}
+                {event.by && event.by !== event.userId ? ` (сделал ${loginById.get(event.by) ?? "владелец"})` : ""}
+              </span>
+              <span className="admin-meta">
+                {when(event.at)}
+                {event.ip && event.ip !== "unknown" ? ` · ${event.ip}` : ""}
               </span>
             </li>
           ))}
         </ul>
-        <AdminUsers />
-      </section>
-
-      <section className="grid gap-2" id="log">
-        <h2 className="text-lg font-semibold">Журнал изменений</h2>
-        {changes.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">Пока записей нет.</p>
-        ) : (
-          <ul className="grid">
-            {changes.map((change) => {
-              let actor = "неизвестно";
-              try {
-                const payload = JSON.parse(change.payload) as { actor?: string };
-                if (payload.actor && payload.actor !== "anonymous") actor = payload.actor;
-              } catch {
-                actor = "неизвестно";
-              }
-              return (
-                <li key={change.id} className="admin-row">
-                  <span>
-                    {actor} {ACTION_LABEL[change.action] ?? change.action}
-                  </span>
-                  <span className="text-sm text-[var(--muted)]">{when(change.createdAt)}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </section>
     </div>
   );

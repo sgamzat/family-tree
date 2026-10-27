@@ -9,7 +9,7 @@ export function AdminUsers() {
   const [name, setName] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"editor" | "admin">("editor");
+  const [role, setRole] = useState<"viewer" | "editor" | "admin">("editor");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -56,10 +56,11 @@ export function AdminUsers() {
         />
       </label>
       <label className="grid gap-1">
-        <span className="text-sm text-[var(--muted)]">Пароль</span>
+        <span className="text-sm text-[var(--muted)]">Пароль (не короче 8 символов)</span>
         <input
           className="field"
-          type="password"
+          type="text"
+          autoComplete="off"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
@@ -69,10 +70,11 @@ export function AdminUsers() {
         <select
           className="field"
           value={role}
-          onChange={(event) => setRole(event.target.value as "editor" | "admin")}
+          onChange={(event) => setRole(event.target.value as "viewer" | "editor" | "admin")}
         >
+          <option value="viewer">Только смотрит</option>
           <option value="editor">Дописывает древо</option>
-          <option value="admin">Хранитель</option>
+          <option value="admin">Хранитель — подтверждает удаления, видит журнал</option>
         </select>
       </label>
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
