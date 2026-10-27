@@ -306,6 +306,12 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
       },
     });
 
+    // Аккаунт, связанный с удаляемой карточкой, переходит на оставшуюся (если она свободна).
+    const keepAccount = await tx.user.findUnique({ where: { personId: keepId } });
+    if (!keepAccount) {
+      await tx.user.updateMany({ where: { personId: dropId }, data: { personId: keepId } });
+    }
+
     await tx.person.delete({ where: { id: dropId } });
   });
 

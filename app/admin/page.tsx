@@ -15,6 +15,8 @@ const ACTION_LABEL: Record<string, string> = {
   "relation.add": "добавил родство",
   "relation.unlink": "отвязал родство",
   "user.create": "открыл вход",
+  "user.link": "отметил свою карточку",
+  "user.unlink": "снял отметку со своей карточки",
 };
 
 function when(date: Date) {
@@ -41,7 +43,7 @@ export default async function AdminPage() {
   return (
     <div className="grid gap-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Админка</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Хранителю</h1>
         <p className="mt-1 text-[var(--muted)]">
           Древо одно. Здесь хранитель видит, кто что дописал, и открывает вход
           тем, кто будет заполнять — обычно это 10–20 человек.
@@ -74,8 +76,8 @@ export default async function AdminPage() {
         <AdminUsers />
       </section>
 
-      <section className="grid gap-2">
-        <h2 className="text-lg font-semibold">Что недавно сделали</h2>
+      <section className="grid gap-2" id="log">
+        <h2 className="text-lg font-semibold">Журнал изменений</h2>
         {changes.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">Пока записей нет.</p>
         ) : (
