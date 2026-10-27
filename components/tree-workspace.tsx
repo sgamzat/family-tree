@@ -58,10 +58,10 @@ function RelationRow({
 function PersonFacts({ person }: { person: PersonDTO }) {
   const male = person.gender === "male";
   const census =
-    person.inCensus1886 && (person.censusFamily || person.censusAge !== null)
+    person.inCensus1886 && (person.censusFamily || person.censusAge != null)
       ? [
           person.censusFamily ? `семья № ${person.censusFamily}` : "",
-          person.censusAge !== null ? `возраст ${person.censusAge}` : "",
+          person.censusAge != null ? `возраст ${person.censusAge}` : "",
         ]
           .filter(Boolean)
           .join(", ")
