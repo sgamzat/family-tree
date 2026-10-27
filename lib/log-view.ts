@@ -76,6 +76,7 @@ const FIELD: Record<string, string> = {
   deathDateText: "Смерть (текстом)",
   isLiving: "Жив",
   sourceNote: "Источник",
+  description: "О человеке",
   aliases: "Другие имена",
   claimedClanId: "Род (заявлен)",
   inCensus1886: "В переписи 1886",

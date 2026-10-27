@@ -97,6 +97,7 @@ export function TreeWorkspace({
   const [view, setView] = useState<TreeView>(kinWith ? "all" : (initialView ?? "close"));
   const [role, setRole] = useState<RelationRole | null>(openRole);
   const [sibling, setSibling] = useState(false);
+  const [sheetRound, setSheetRound] = useState(0);
   const [editing, setEditing] = useState(openEdit);
   const [claimBusy, setClaimBusy] = useState(false);
 
@@ -312,6 +313,20 @@ export function TreeWorkspace({
             .filter(Boolean)
             .join(" · ")}
         </p>
+        {family.person.description ? (
+          <div className="echo-about">
+            <p className="echo-about-title">
+              {family.person.gender === "male" ? "Каким он был" : "Какой она была"}
+            </p>
+            {family.person.description.split(/\n{2,}/).map((part, index) => (
+              <p key={index}>{part}</p>
+            ))}
+          </div>
+        ) : canEdit ? (
+          <button type="button" className="echo-about-add" onClick={() => setEditing(true)}>
+            + Рассказать, {family.person.gender === "male" ? "каким он был" : "какой она была"}
+          </button>
+        ) : null}
         {family.person.aliases.length > 0 ? (
           <p>Также: {family.person.aliases.join(", ")}</p>
         ) : null}
@@ -323,15 +338,14 @@ export function TreeWorkspace({
           <div className="echo-line is-linked">
             <p className="echo-line-title">Линия до наших дней</p>
             <p>
-              Доведена до живущих: среди потомков{" "}
-              {livingDown === 1 ? "один живущий" : `живущих — ${livingDown}`}.
+              Потомки внесены в древо — от переписи до сегодняшнего дня.
             </p>
           </div>
         ) : (
           <div className="echo-line is-open">
             <p className="echo-line-title">Линия до наших дней</p>
             <p>
-              Пока не доведена до живущих. Знаете детей или внуков? Добавьте их, и
+              Пока не доведена до наших дней. Знаете детей или внуков? Добавьте их, и
               линия соединится с сегодняшним днём.
             </p>
             {canEdit ? (
@@ -621,6 +635,7 @@ export function TreeWorkspace({
 
       {role ? (
         <AddRelativeSheet
+          key={`${role}-${sheetRound}`}
           personId={sibling && siblingParent ? siblingParent.id : personId}
           role={role}
           family={sibling && siblingParent ? siblingFamily : family}
@@ -632,6 +647,10 @@ export function TreeWorkspace({
             setRole(null);
             setSibling(false);
             setPane("tree");
+          }}
+          onAgain={(next) => {
+            setRole(next);
+            setSheetRound((round) => round + 1);
           }}
         />
       ) : null}

@@ -28,16 +28,16 @@ export default async function CensusPage({
       <div className="grid gap-2">
         <CensusStamp label="Перепись населения" large />
         <h1 className="text-3xl font-semibold leading-tight">
-          {onlyUnlinked ? "Кто ещё не связан с живущими" : "Перепись 1886 года"}
+          {onlyUnlinked ? "Чьи потомки ещё не внесены" : "Перепись 1886 года"}
         </h1>
         <p className="text-[var(--muted)]">
           {onlyUnlinked
-            ? "От этих людей пока нельзя дойти по детям и внукам до живущих. Знаете их потомков — добавьте их."
+            ? "От этих людей пока нельзя дойти по детям и внукам до наших дней. Знаете их потомков — добавьте их."
             : "Люди из листа переписи. Это те же карточки, что и в древе: найдите своего предка и спускайтесь от него к детям и внукам."}
         </p>
         {progress.total > 0 ? (
           <p className="text-[var(--muted)]">
-            Связаны с живущими: {progress.linked} из {progress.total}.{" "}
+            С потомками до наших дней: {progress.linked} из {progress.total}.{" "}
             {onlyUnlinked ? (
               <Link href="/census" className="font-semibold text-[var(--accent)]">
                 Показать всех

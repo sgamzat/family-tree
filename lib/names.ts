@@ -25,6 +25,7 @@ export type PersonDTO = {
   deathDateText: string;
   isLiving: boolean | null;
   sourceNote: string;
+  description: string;
   aliases: string[];
   claimedClanId: string | null;
   inCensus1886: boolean;
@@ -57,12 +58,16 @@ export type PersonInput = {
   deathYear: number | null;
   birthDateText: string;
   deathDateText: string;
-  isLiving: boolean | null;
+  /** Не показывается в формах; при правке не меняется (undefined). Живой ли — видно по дате смерти. */
+  isLiving?: boolean | null;
   sourceNote: string;
+  description: string;
   aliases: string[];
   claimedClanId: string | null;
   inCensus1886: boolean;
 };
+
+export const DESCRIPTION_MAX = 4000;
 
 export type RelationRole = "father" | "mother" | "spouse" | "child";
 
@@ -353,9 +358,13 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
   }
 
   const claimedRaw = String(body.claimedClanId ?? "").trim();
-  let isLiving: boolean | null = null;
+  let isLiving: boolean | null | undefined;
   if (body.isLiving === true || body.isLiving === "true") isLiving = true;
   if (body.isLiving === false || body.isLiving === "false") isLiving = false;
+  const description = String(body.description ?? "").trim();
+  if (description.length > DESCRIPTION_MAX) {
+    throw new Error(`Описание длинновато: до ${DESCRIPTION_MAX} знаков`);
+  }
 
   return {
     lastName,
@@ -366,8 +375,9 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
     deathYear,
     birthDateText: String(body.birthDateText ?? "").trim(),
     deathDateText: String(body.deathDateText ?? "").trim(),
-    isLiving,
+    ...(isLiving !== undefined ? { isLiving } : {}),
     sourceNote: String(body.sourceNote ?? "").trim(),
+    description,
     aliases: parseAliases(body.aliases),
     claimedClanId: claimedRaw || null,
     inCensus1886: body.inCensus1886 === true,
@@ -423,4 +433,46 @@ export function genitive(name: string, gender: Gender): string {
     else if (!vowels.includes(last)) result = `${word}а`;
   }
   return head + result;
+}
+
+/**
+ * Мягкая проверка годов при добавлении родственника: не запрещает, а подсказывает,
+ * если похоже на опечатку.
+ */
+export function relativeYearWarning(
+  role: RelationRole,
+  anchor: Pick<PersonDTO, "firstName" | "gender" | "birthYear">,
+  born: number | null,
+  died: number | null,
+  relativeGender: Gender,
+): string {
+  const who = genitive(anchor.firstName, anchor.gender);
+  const base = anchor.birthYear;
+  const years = (n: number) => {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return `${n} год`;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} года`;
+    return `${n} лет`;
+  };
+  if (role === "father" || role === "mother") {
+    const parent = role === "father" ? "Отец" : "Мать";
+    if (base && born) {
+      const gap = base - born;
+      if (gap < 0) return `${parent} получается моложе ${who} — проверьте год.`;
+      if (gap < 13) return `${parent} старше ${who} всего на ${years(gap)} — проверьте год.`;
+      if (gap > 70) return `${parent} старше ${who} на ${years(gap)} — точно так?`;
+    }
+    if (base && died && died < base - (role === "father" ? 1 : 0)) {
+      return `${parent} ${role === "father" ? "умер" : "умерла"} раньше, чем родился ${anchor.firstName}, — проверьте год.`;
+    }
+    return "";
+  }
+  if (role === "child" && base && born) {
+    const gap = born - base;
+    const child = relativeGender === "male" ? "Сын" : "Дочь";
+    if (gap < 0) return `${child} получается старше ${who} — проверьте год.`;
+    if (gap < 13) return `${child} младше ${who} всего на ${years(gap)} — проверьте год.`;
+  }
+  return "";
 }

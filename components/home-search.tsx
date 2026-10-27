@@ -99,7 +99,7 @@ export function HomeSearch() {
       </div>
 
       <p className="home-search-hint">
-        Ищем сразу среди живущих и в переписи 1886 года.
+        Ищем по всему древу и в переписи 1886 года.
       </p>
     </div>
   );
