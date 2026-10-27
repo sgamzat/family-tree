@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PersonPicker } from "@/components/person-picker";
 import { PersonTile } from "@/components/person-tile";
@@ -155,6 +156,12 @@ export function KinshipFinder({
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       {result && split ? (
         <div className="grid gap-4">
+          <Link
+            href={`/people/${result.from.id}?kin=${result.to.id}`}
+            className="btn-secondary text-center"
+          >
+            Показать на карте
+          </Link>
           <KinshipPathView
             from={result.from}
             to={result.to}

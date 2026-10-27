@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AddRelativeSheet } from "@/components/add-relative-sheet";
 import { CensusStamp } from "@/components/census-stamp";
 import { EditPersonSheet } from "@/components/edit-person-sheet";
-import { ClanTreeView, LineageTree } from "@/components/family-tree";
+import { TreeMap } from "@/components/family-tree";
+import { KinshipBar } from "@/components/kinship-bar";
 import { api } from "@/lib/api";
 import {
   censusPathUp,
@@ -13,7 +14,7 @@ import {
   livingDescendantCount,
 } from "@/lib/census";
 import { indexGraph, type KinGraph } from "@/lib/graph";
-import type { DoubledAncestor } from "@/lib/kinship";
+import type { DoubledAncestor, KinshipLookup, KinshipPath } from "@/lib/kinship";
 import {
   formatFio,
   personYears,
@@ -22,51 +23,13 @@ import {
   type RelationRole,
 } from "@/lib/names";
 import {
-  DOWN_DEPTHS,
-  UP_DEPTHS,
-  buildClanTree,
-  buildPersonTree,
-  clanCaption,
-  maxDown,
-  maxUp,
-  paternalRootId,
-  type TreeMode,
-} from "@/lib/tree";
+  TREE_VIEWS,
+  allRelatives,
+  closePeople,
+  tukhumPeople,
+  type TreeView,
+} from "@/lib/tree-views";
 import { useRouter } from "next/navigation";
-
-function DepthChips({
-  options,
-  value,
-  max,
-  allLabel,
-  onChange,
-}: {
-  options: ReadonlyArray<{ value: number; label: string }>;
-  value: number;
-  max: number;
-  allLabel: string;
-  onChange: (value: number) => void;
-}) {
-  if (max <= 0) return null;
-  const chips = [
-    ...options.filter((option) => option.value <= max),
-    ...(max > 4 ? [{ value: max, label: allLabel }] : []),
-  ];
-  return (
-    <div className="echo-chips">
-      {chips.map((option) => (
-        <button
-          key={option.label}
-          type="button"
-          className={`echo-chip ${value === option.value ? "is-on" : ""}`}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function RelationRow({
   person,
@@ -97,25 +60,21 @@ export function TreeWorkspace({
   doubledById,
   doubledAncestors,
   keeper = false,
+  kinWith = null,
 }: {
   family: FamilyDTO;
   graph: KinGraph;
   doubledById?: Record<string, number>;
   doubledAncestors: DoubledAncestor[];
   keeper?: boolean;
+  /** Открыть сразу родство с этим человеком (ссылка «Показать на карте»). */
+  kinWith?: PersonDTO | null;
 }) {
   const router = useRouter();
   const personId = family.person.id;
-  const upMax = maxUp(graph, personId);
-  const downMax = maxDown(graph, personId);
-  const rootId = paternalRootId(graph, personId);
-  const clanDownMax = maxDown(graph, rootId);
 
   const [pane, setPane] = useState<"tree" | "card">("tree");
-  const [mode, setMode] = useState<TreeMode>("line");
-  const [up, setUp] = useState(Math.min(2, upMax));
-  const [down, setDown] = useState(Math.min(2, downMax));
-  const [clanDown, setClanDown] = useState(Math.min(4, clanDownMax) || clanDownMax);
+  const [view, setView] = useState<TreeView>(kinWith ? "all" : "close");
   const [role, setRole] = useState<RelationRole | null>(null);
   const [sibling, setSibling] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -134,14 +93,95 @@ export function TreeWorkspace({
   );
   const censusAncestor = pathUp ? pathUp[pathUp.length - 1] : null;
 
-  const lineTree = useMemo(
-    () => buildPersonTree(graph, personId, { up, down }),
-    [graph, personId, up, down],
+  const tukhum = useMemo(() => tukhumPeople(indexed, personId), [indexed, personId]);
+  const viewPeople = useMemo(() => {
+    if (view === "all") return allRelatives(indexed, personId);
+    if (view === "tukhum") return tukhum.people;
+    return closePeople(indexed, personId);
+  }, [view, indexed, personId, tukhum]);
+  const tukhumRoot = indexed.byId.get(tukhum.rootId) ?? null;
+
+  // --- Родство на карте -------------------------------------------------------
+  const [kinOpen, setKinOpen] = useState(Boolean(kinWith));
+  const [kinA, setKinA] = useState<PersonDTO | null>(kinWith ? family.person : null);
+  const [kinB, setKinB] = useState<PersonDTO | null>(kinWith ?? null);
+  const pairKey = kinOpen && kinA && kinB ? `${kinA.id}|${kinB.id}` : "";
+  const [kinData, setKinData] = useState<{
+    key: string;
+    lines: KinshipPath[];
+    error: string;
+  }>({ key: "", lines: [], error: "" });
+  const [lineChoice, setLineChoice] = useState({ key: "", index: 0 });
+
+  useEffect(() => {
+    if (!pairKey) return;
+    let cancelled = false;
+    const [fromId, toId] = pairKey.split("|");
+    api<KinshipLookup | { error: string }>(`/api/kinship?from=${fromId}&to=${toId}`)
+      .then((result) => {
+        if (cancelled) return;
+        if ("error" in result) {
+          setKinData({ key: pairKey, lines: [], error: result.error });
+          return;
+        }
+        const lines = [
+          { relation: result.relation, steps: result.steps },
+          ...result.alternates,
+        ];
+        setKinData({ key: pairKey, lines, error: "" });
+        // Если путь выходит за текущую вкладку — показываем всех родных.
+        setView((current) => {
+          if (current === "all") return current;
+          const shown = new Set(
+            (current === "tukhum"
+              ? tukhumPeople(indexed, personId).people
+              : closePeople(indexed, personId)
+            ).map((person) => person.id),
+          );
+          return lines[0].steps.every((step) => shown.has(step.person.id)) ? current : "all";
+        });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setKinData({
+          key: pairKey,
+          lines: [],
+          error: err instanceof Error ? err.message : "Не удалось найти связь",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pairKey, indexed, personId]);
+
+  const kinReady = kinData.key === pairKey;
+  const kinLines = kinReady ? kinData.lines : [];
+  const lineIndex = lineChoice.key === pairKey ? lineChoice.index % Math.max(1, kinLines.length) : 0;
+  const kinLine = kinLines[lineIndex] ?? null;
+  const kinRoute = useMemo(
+    () => kinLine?.steps.map((step) => ({ id: step.person.id, via: step.via })) ?? null,
+    [kinLine],
   );
-  const clanTree = useMemo(
-    () => buildClanTree(graph, personId, clanDown),
-    [graph, personId, clanDown],
-  );
+  const shownIds = useMemo(() => new Set(viewPeople.map((person) => person.id)), [viewPeople]);
+  const kinOffMap = Boolean(kinRoute && kinRoute.some((step) => !shownIds.has(step.id)));
+
+  function pickForKinship(person: PersonDTO) {
+    if (!kinA) {
+      setKinA(person);
+    } else if (person.id === kinA.id) {
+      return;
+    } else {
+      setKinB(person);
+    }
+  }
+
+  function openKinship(other: PersonDTO | null = null) {
+    setKinOpen(true);
+    if (other) {
+      setKinA(family.person);
+      setKinB(other.id === family.person.id ? null : other);
+    }
+  }
 
   const siblingParent = family.father ?? family.mother;
   const siblingFamily = siblingParent
@@ -426,30 +466,59 @@ export function TreeWorkspace({
 
       <section className={`echo-stage ${pane === "card" ? "is-hidden-mobile" : ""}`}>
         <div className="echo-toolbar">
-          <div className="echo-mode" role="tablist" aria-label="Вид древа">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "line"}
-              className={mode === "line" ? "is-on" : ""}
-              onClick={() => setMode("line")}
-            >
-              Своя линия
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "clan"}
-              className={mode === "clan" ? "is-on" : ""}
-              onClick={() => setMode("clan")}
-            >
-              Весь тухум
-            </button>
+          <div className="echo-mode echo-mode-3" role="tablist" aria-label="Вид древа">
+            {TREE_VIEWS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                role="tab"
+                aria-selected={view === item.value}
+                className={view === item.value ? "is-on" : ""}
+                onClick={() => setView(item.value)}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-          <Link href={`/kinship?from=${personId}`} className="echo-chip echo-chip-link">
-            Кем приходится
-          </Link>
+          <button
+            type="button"
+            className={`echo-kin-toggle ${kinOpen ? "is-on" : ""}`}
+            aria-pressed={kinOpen}
+            onClick={() => (kinOpen ? setKinOpen(false) : openKinship())}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="6" cy="6" r="2.5" />
+              <circle cx="18" cy="18" r="2.5" />
+              <path d="M6 8.5V13a3 3 0 0 0 3 3h6.5" />
+            </svg>
+            Родство
+          </button>
         </div>
+
+        {view === "tukhum" && tukhumRoot ? (
+          <p className="echo-caption">
+            {tukhum.people.length > 1
+              ? `Род от ${formatFio(tukhumRoot) || tukhumRoot.firstName} по мужской линии. Дочери показаны, их дети — уже в роду мужа.`
+              : "Отцовская линия пока не внесена — добавьте отца, деда, прадеда."}
+          </p>
+        ) : null}
+
+        {kinOpen ? (
+          <KinshipBar
+            focus={family.person}
+            first={kinA}
+            second={kinB}
+            onFirst={setKinA}
+            onSecond={setKinB}
+            loading={Boolean(pairKey) && !kinReady}
+            error={kinReady ? kinData.error : ""}
+            lines={kinLines}
+            lineIndex={lineIndex}
+            onNextLine={() => setLineChoice({ key: pairKey, index: lineIndex + 1 })}
+            offMap={kinOffMap}
+            onClose={() => setKinOpen(false)}
+          />
+        ) : null}
 
         {censusAncestor ? (
           <p className="echo-plaque">
@@ -458,45 +527,18 @@ export function TreeWorkspace({
           </p>
         ) : null}
 
-        {mode === "line" ? (
-          <div className="echo-depth-scroll">
-            <DepthChips
-              options={UP_DEPTHS}
-              value={up}
-              max={upMax}
-              allLabel="Все предки"
-              onChange={setUp}
-            />
-            <DepthChips
-              options={DOWN_DEPTHS}
-              value={down}
-              max={downMax}
-              allLabel="Все потомки"
-              onChange={setDown}
-            />
-          </div>
-        ) : (
-          <div className="echo-depths">
-            {clanTree ? <p className="echo-caption">{clanCaption(clanTree)}</p> : null}
-            <div className="echo-depth-scroll">
-              <DepthChips
-                options={DOWN_DEPTHS}
-                value={clanDown}
-                max={clanDownMax}
-                allLabel="Весь род"
-                onChange={setClanDown}
-              />
-            </div>
-          </div>
-        )}
-
         <div className="echo-canvas">
-          {mode === "line" && lineTree ? (
-            <LineageTree tree={lineTree} graph={graph} doubledById={doubledById} />
-          ) : null}
-          {mode === "clan" && clanTree ? (
-            <ClanTreeView tree={clanTree} graph={graph} doubledById={doubledById} />
-          ) : null}
+          <TreeMap
+            people={viewPeople}
+            graph={indexed}
+            focusId={personId}
+            doubledById={doubledById}
+            path={kinOpen && !kinOffMap ? kinRoute : null}
+            picking={kinOpen}
+            marks={kinOpen ? [kinA?.id, kinB?.id].filter((id): id is string => Boolean(id)) : []}
+            onPick={pickForKinship}
+            onAskKinship={(person) => openKinship(person)}
+          />
         </div>
       </section>
 

@@ -20,6 +20,8 @@
   --female: #a05a78;
   --male-soft: #d9e6f3;
   --female-soft: #f5dde2;
+  /* Линия родства на карте */
+  --kin: #d85a30;
   --slot: #fbf8f2;
   --danger: #9b2c2c;
   --danger-soft: #f8e8e8;
@@ -965,6 +967,202 @@ a.home-clan-row:hover .home-clan-name {
   border: 2px solid var(--census);
 }
 
+/* --- Древо-карта ------------------------------------------------------------ */
+.tree-map {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  min-height: 26rem;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tree-map:active {
+  cursor: grabbing;
+}
+
+.tree-map.is-picking,
+.tree-map.is-picking .tree-node {
+  cursor: crosshair;
+}
+
+.tree-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.tree-world .tree-node {
+  cursor: pointer;
+  -webkit-user-drag: none;
+}
+
+/* Издалека имена не читаются — карточка остаётся цветным прямоугольником */
+.tree-map.is-far .tree-node-name,
+.tree-map.is-far .tree-node-years,
+.tree-map.is-far .tree-node-stamp,
+.tree-map.is-far .tree-node-mark,
+.tree-map.no-years .tree-node-years {
+  display: none;
+}
+
+.tree-node.is-dim {
+  opacity: 0.28;
+}
+
+.tree-map .tree-lines {
+  transition: opacity 0.2s;
+}
+
+.tree-node.tree-node-found::after,
+.tree-node.tree-node-onpath::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 13px;
+  pointer-events: none;
+}
+
+.tree-node.tree-node-found::after {
+  border: 2.5px solid #534ab7;
+}
+
+.tree-node.tree-node-onpath {
+  border: 2.5px solid var(--kin);
+}
+
+.tree-node.tree-node-onpath.tree-node-current {
+  border-color: var(--accent);
+}
+
+.tree-kin-halo {
+  fill: none;
+  stroke: var(--slot);
+  stroke-width: 10;
+  stroke-linejoin: round;
+}
+
+.tree-kin-line {
+  fill: none;
+  stroke: var(--kin);
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.tree-flags,
+.tree-ruler {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tree-flag {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  border-radius: 999px;
+  padding: 0 0.6rem;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 22px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgb(31 42 36 / 0.18);
+}
+
+.tree-flag::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  border: 5px solid transparent;
+  border-bottom: 0;
+  border-top-color: inherit;
+  transform: translateX(-50%);
+}
+
+.tree-flag-me {
+  background: var(--accent);
+  border-top-color: var(--accent);
+}
+
+.tree-flag-selected {
+  background: var(--census);
+  border-top-color: var(--census);
+}
+
+.tree-flag-kin {
+  background: var(--kin);
+  border-top-color: var(--kin);
+}
+
+.tree-flag-found {
+  background: #534ab7;
+  border-top-color: #534ab7;
+}
+
+.tree-ruler-mark {
+  position: absolute;
+  left: 0.5rem;
+  transform: translateY(-50%);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  padding: 0 0.5rem;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.tree-find {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 4;
+  width: min(16rem, calc(100% - 5rem));
+}
+
+.tree-find-field {
+  display: flex;
+  height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--tree-border);
+  border-radius: 0.65rem;
+  background: var(--card);
+  padding: 0 0.75rem;
+  color: var(--muted);
+}
+
+.tree-find-field:focus-within {
+  border-color: var(--accent);
+}
+
+.tree-find-field input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.tree-find-note {
+  margin-top: 0.3rem;
+  display: inline-block;
+  border-radius: 0.5rem;
+  background: var(--card);
+  padding: 0.15rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .tree-frame {
   position: relative;
   height: 100%;
@@ -1158,6 +1356,251 @@ body:has(.echo-page) .page-main {
   font-weight: 600;
 }
 
+.echo-mode-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.echo-kin-toggle {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--tree-border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: 0 0.85rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.echo-kin-toggle.is-on {
+  border-color: var(--kin);
+  background: var(--kin);
+  color: #fff;
+}
+
+/* --- Панель «Родство» над картой ---------------------------------------- */
+.kin-bar {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.55rem 0.75rem 0;
+  border: 1.5px solid color-mix(in srgb, var(--kin) 45%, var(--line));
+  border-radius: 0.9rem;
+  background: var(--card);
+  padding: 0.75rem 0.85rem;
+}
+
+.kin-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.kin-bar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.kin-bar-close {
+  min-height: 2.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.kin-slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.kin-slot {
+  position: relative;
+  display: flex;
+  min-height: 2.9rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--tree-border);
+  border-radius: 0.65rem;
+  background: var(--slot);
+  padding: 0 0.4rem 0 0.75rem;
+}
+
+.kin-slot.is-active {
+  border: 2px dashed var(--kin);
+}
+
+.kin-slot.is-filled {
+  border-color: var(--kin);
+  background: color-mix(in srgb, var(--kin) 10%, var(--card));
+}
+
+.kin-slot-field {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 559px) {
+  .kin-slot,
+  .kin-slot-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .kin-slot {
+    padding: 0.3rem 0.5rem;
+  }
+
+  .kin-slot-clear {
+    position: absolute;
+    right: 0.1rem;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .kin-slot-name {
+    padding-right: 2.2rem;
+  }
+}
+
+.kin-slot-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.kin-slot-field input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.kin-slot-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kin-slot-clear {
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.kin-slot-results {
+  top: calc(100% + 0.25rem);
+  max-height: 50vh;
+}
+
+.kin-quick {
+  justify-self: start;
+  min-height: 2.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  padding: 0 0.85rem;
+  color: var(--accent-strong);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.kin-hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.kin-error {
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+.kin-result {
+  display: grid;
+  gap: 0.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+
+.kin-relation {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.kin-relation .serif {
+  color: var(--kin);
+}
+
+.kin-chain {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: thin;
+}
+
+.kin-chain li {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kin-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--slot);
+  padding: 0.1rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.kin-arrow {
+  color: var(--muted);
+}
+
+.kin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kin-next {
+  min-height: 2.75rem;
+  border-radius: 0.65rem;
+  background: var(--kin);
+  padding: 0 0.9rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+.kin-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0 0.5rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .echo-toolbar .echo-chip-link {
   min-height: 2.75rem;
   font-size: 0.85rem;
@@ -1231,6 +1674,8 @@ body:has(.echo-page) .page-main {
   border-radius: 0.9rem;
   background: var(--slot);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .echo-canvas .tree-scroll {
