@@ -13,11 +13,11 @@ export default async function PersonPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ kin?: string; add?: string; edit?: string }>;
+  searchParams: Promise<{ kin?: string; add?: string; edit?: string; view?: string }>;
 }) {
   const { id } = await params;
   const user = await pageUser(`/people/${id}`);
-  const { kin, add, edit } = await searchParams;
+  const { kin, add, edit, view } = await searchParams;
   const family = await getFamily(id);
   if (!family) notFound();
   const kinWith = kin && kin !== id ? ((await getFamily(kin))?.person ?? null) : null;
@@ -58,6 +58,7 @@ export default async function PersonPage({
       me={me}
       openRole={editor ? openRole : null}
       openEdit={editor && edit === "1"}
+      initialView={view === "all" || view === "tukhum" ? view : null}
     />
   );
 }

@@ -295,3 +295,36 @@ export function relativeDay(date: Date, now = new Date()): string {
   if (days === 1) return "вчера";
   return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(date);
 }
+
+export type VillageStats = { people: number; generations: number };
+
+/** Сколько людей в древе и сколько поколений в самой длинной известной цепочке. */
+export function villageStats(graph: IndexedGraph): VillageStats {
+  const memo = new Map<string, number>();
+  const onPath = new Set<string>();
+  const depth = (id: string): number => {
+    const known = memo.get(id);
+    if (known !== undefined) return known;
+    if (onPath.has(id)) return 0;
+    onPath.add(id);
+    let best = 0;
+    for (const parentId of graph.parentsOf.get(id) ?? []) {
+      if (graph.byId.has(parentId)) best = Math.max(best, depth(parentId));
+    }
+    onPath.delete(id);
+    memo.set(id, best + 1);
+    return best + 1;
+  };
+  let generations = 0;
+  for (const id of graph.byId.keys()) generations = Math.max(generations, depth(id));
+  return { people: graph.byId.size, generations };
+}
+
+/** 1 род, 2 рода, 5 родов — для подписей к числам. */
+export function plural(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}

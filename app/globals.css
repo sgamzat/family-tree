@@ -140,6 +140,18 @@ button:focus-visible {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.site-logo-place {
+  color: var(--muted);
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .header-search {
@@ -156,7 +168,7 @@ button:focus-visible {
 }
 
 body:has(.home-page) .header-search,
-body:has(.home-member) .header-search {
+body:has(.home-member.is-unlinked) .header-search {
   display: none;
 }
 
@@ -292,6 +304,23 @@ body:has(.home-member) .site-search-icon {
 .account-button:hover,
 .account-button.is-open {
   border-color: var(--accent);
+}
+
+.account-first {
+  display: none;
+  max-width: 9rem;
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .account-first {
+    display: inline;
+    margin-left: 0.2rem;
+  }
 }
 
 .account-initial {
@@ -1001,6 +1030,271 @@ body:has(.home-member) .page-main {
   padding: 0.75rem 0 2.5rem;
 }
 
+/* Полоса «Общее древо села» */
+.home-village {
+  display: grid;
+  gap: 1rem 2rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--card);
+  padding: 1.1rem 1rem;
+}
+
+@media (min-width: 900px) {
+  .home-village {
+    grid-template-columns: minmax(16rem, 1.2fr) minmax(0, 2fr);
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+.home-village-about h1 {
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.home-village-about p {
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.home-stats > div {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 0.1rem;
+}
+
+.home-stats dd {
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.home-stats dd span {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.home-stats dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.home-stat-census {
+  grid-column: 1 / -1;
+  border-radius: 0.75rem;
+  background: var(--census-soft);
+  padding: 0.5rem 0.75rem;
+}
+
+.home-stat-census > div.home-bar {
+  order: -1;
+  margin-top: 0.35rem;
+  background: #e6d2b8;
+}
+
+.home-stat-census dt a,
+.home-stat-census dd {
+  color: var(--census-ink);
+}
+
+.home-stat-census dt a {
+  text-decoration: underline;
+  text-decoration-color: var(--census-line);
+  text-underline-offset: 2px;
+}
+
+.home-village-search {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 900px) {
+  .home-stat-census {
+    grid-column: span 2;
+  }
+}
+
+.home-village-search .home-search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+@media (min-width: 900px) {
+  .home-village-search {
+    display: none;
+  }
+}
+
+/* Линия одной строкой: вы → мать → дед → … → 1886 */
+.home-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0;
+}
+
+/* На телефоне — одна строка с прокруткой вбок, чтобы стрелки не начинали строку */
+@media (max-width: 719px) {
+  .home-chain {
+    flex-wrap: nowrap;
+    margin-inline: -1rem;
+    overflow-x: auto;
+    padding: 0.1rem 1rem 0.4rem;
+    scroll-padding-inline: 1rem;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .home-chain li {
+    flex: none;
+    scroll-snap-align: start;
+  }
+}
+
+.home-chain li {
+  display: flex;
+  align-items: center;
+}
+
+.home-chain li + li::before {
+  content: "→";
+  padding: 0 0.4rem;
+  color: var(--line-strong);
+}
+
+.home-chain a,
+.home-chain li.is-gap > span {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--female);
+  border-radius: 0.6rem;
+  background: var(--paper);
+  padding: 0.25rem 0.7rem;
+  line-height: 1.2;
+}
+
+.home-chain li.is-male a {
+  border-left-color: var(--male);
+}
+
+.home-chain li:first-child a {
+  border-color: var(--accent);
+  border-left-width: 3px;
+  background: var(--accent-soft);
+}
+
+.home-chain li.is-census a {
+  border-left-color: var(--census);
+}
+
+.home-chain a:hover {
+  border-color: var(--line-strong);
+}
+
+.home-chain b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.home-chain a span,
+.home-chain .is-gap span span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.home-chain li.is-gap > span {
+  border: 1.5px dashed var(--census-line);
+  background: transparent;
+}
+
+.home-chain li.is-gap b {
+  color: var(--census);
+}
+
+.home-find-steps {
+  display: grid;
+  gap: 0.35rem;
+  counter-reset: find;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.home-find-steps li {
+  display: flex;
+  gap: 0.6rem;
+  counter-increment: find;
+}
+
+.home-find-steps li::before {
+  content: counter(find);
+  display: flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* Тухумы — чипы со ссылкой на вкладку «Тухум» родоначальника */
+.home-clan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.home-clan-chip {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  padding: 0 0.9rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+a.home-clan-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.home-clan-chip span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.home-clans-more {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .home-greeting p {
   color: var(--muted);
   font-size: 0.95rem;
@@ -1041,6 +1335,7 @@ body:has(.home-member) .page-main {
 
 .home-line {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -1140,6 +1435,20 @@ body:has(.home-member) .page-main {
 .home-line-actions {
   display: grid;
   gap: 0.25rem;
+}
+
+@media (min-width: 720px) {
+  .home-line-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+  }
+
+  .home-line-actions .btn-primary {
+    width: auto;
+    padding-inline: 1.5rem;
+  }
 }
 
 .home-line-more {

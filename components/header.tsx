@@ -5,6 +5,17 @@ import { HeaderNav } from "@/components/header-nav";
 import { HeaderSearch } from "@/components/header-search";
 import { canEdit, currentUser, isKeeper } from "@/lib/auth";
 import { countPendingRequests } from "@/lib/requests";
+import { villageName } from "@/lib/site";
+
+function Logo({ href }: { href: string }) {
+  const village = villageName();
+  return (
+    <Link href={href} className="site-logo">
+      <span>Древо села</span>
+      {village ? <span className="site-logo-place">{village}</span> : null}
+    </Link>
+  );
+}
 
 /**
  * Шапка: слева название, разделы (не больше трёх), справа — одна кнопка
@@ -16,9 +27,7 @@ export async function Header() {
     return (
       <header className="site-header">
         <div className="site-header-inner">
-          <Link href="/login" className="site-logo">
-            Древо села
-          </Link>
+          <Logo href="/login" />
         </div>
       </header>
     );
@@ -31,9 +40,7 @@ export async function Header() {
     <>
       <header className="site-header">
         <div className="site-header-inner">
-          <Link href="/" className="site-logo">
-            Древо села
-          </Link>
+          <Logo href="/" />
           <HeaderSearch />
           <HeaderNav personId={personId} loggedIn />
           <div className="site-header-end">
