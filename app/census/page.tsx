@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CensusList } from "@/components/census-list";
 import { CensusStamp } from "@/components/census-stamp";
+import { canEdit, pageUser } from "@/lib/auth";
 import { censusProgress } from "@/lib/census";
 import { indexGraph } from "@/lib/graph";
 import { listCensusPeople, loadKinGraph } from "@/lib/people";
@@ -12,6 +13,7 @@ export default async function CensusPage({
 }: {
   searchParams: Promise<{ show?: string }>;
 }) {
+  const user = await pageUser("/census");
   const { show } = await searchParams;
   const onlyUnlinked = show === "unlinked";
   const [people, graph] = await Promise.all([listCensusPeople(), loadKinGraph()]);
@@ -51,9 +53,11 @@ export default async function CensusPage({
           </p>
         ) : null}
       </div>
-      <Link href="/people/new?census=1886" className="btn-primary text-center">
-        Добавить человека из переписи
-      </Link>
+      {canEdit(user.role) ? (
+        <Link href="/people/new?census=1886" className="btn-primary text-center">
+          Добавить человека из переписи
+        </Link>
+      ) : null}
       <CensusList people={shown} linkedIds={linkedIds} />
     </div>
   );

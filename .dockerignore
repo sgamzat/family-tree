@@ -8,5 +8,6 @@ node_modules
 prisma/*.db
 prisma/*.db-*
 data
+backups
 README.md
 agent-transcripts

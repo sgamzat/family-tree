@@ -1,5 +1,6 @@
 import { TreeWorkspace } from "@/components/tree-workspace";
-import { currentUser } from "@/lib/auth";
+import { findAccountByPerson } from "@/lib/accounts";
+import { canEdit, isKeeper, pageUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findDoubledAncestors } from "@/lib/kinship";
 import { getFamily, loadKinGraph } from "@/lib/people";
@@ -15,21 +16,29 @@ export default async function PersonPage({
   searchParams: Promise<{ kin?: string; add?: string; edit?: string }>;
 }) {
   const { id } = await params;
+  const user = await pageUser(`/people/${id}`);
   const { kin, add, edit } = await searchParams;
   const family = await getFamily(id);
   if (!family) notFound();
   const kinWith = kin && kin !== id ? ((await getFamily(kin))?.person ?? null) : null;
-  const graph = await loadKinGraph();
+  const [graph, pendingRequest] = await Promise.all([
+    loadKinGraph(),
+    prisma.changeRequest.findFirst({
+      where: { personId: id, status: "pending" },
+      orderBy: { createdAt: "desc" },
+      select: { kind: true, requestedByName: true, reason: true },
+    }),
+  ]);
   const doubledAncestors = findDoubledAncestors(graph, id);
   const doubledById = Object.fromEntries(
     doubledAncestors.map((item) => [item.person.id, item.pathCount]),
   );
-  const user = await currentUser();
-  const account = await prisma.user.findUnique({ where: { personId: id } });
+  const account = findAccountByPerson(id);
+  const editor = canEdit(user.role);
   const me = {
-    loggedIn: Boolean(user),
-    isMe: Boolean(user && user.personId === id),
-    canClaim: Boolean(user && !user.personId && !account),
+    loggedIn: true,
+    isMe: user.personId === id,
+    canClaim: !user.personId && !account,
   };
   const openRole =
     add === "father" || add === "mother" || add === "spouse" || add === "child" ? add : null;
@@ -41,11 +50,14 @@ export default async function PersonPage({
       graph={graph}
       doubledById={doubledById}
       doubledAncestors={doubledAncestors}
-      keeper={user?.role === "admin"}
+      keeper={isKeeper(user.role)}
+      owner={user.role === "owner"}
+      canEdit={editor}
+      pendingRequest={pendingRequest}
       kinWith={kinWith}
       me={me}
-      openRole={user ? openRole : null}
-      openEdit={Boolean(user) && edit === "1"}
+      openRole={editor ? openRole : null}
+      openEdit={editor && edit === "1"}
     />
   );
 }

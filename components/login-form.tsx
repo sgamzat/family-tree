@@ -4,10 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 
-export function LoginForm({ setup }: { setup: boolean }) {
+export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [name, setName] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,7 +18,7 @@ export function LoginForm({ setup }: { setup: boolean }) {
     try {
       await api("/api/session", {
         method: "POST",
-        body: JSON.stringify({ name, login, password }),
+        body: JSON.stringify({ login, password }),
       });
       const next = searchParams.get("next");
       router.push(next?.startsWith("/") && !next.startsWith("//") ? next : "/");
@@ -38,17 +37,6 @@ export function LoginForm({ setup }: { setup: boolean }) {
         void submit();
       }}
     >
-      {setup ? (
-        <label className="grid gap-1">
-          <span className="text-sm text-[var(--muted)]">Как к вам обращаться</span>
-          <input
-            className="field"
-            value={name}
-            autoComplete="name"
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-      ) : null}
       <label className="grid gap-1">
         <span className="text-sm text-[var(--muted)]">Логин</span>
         <input
@@ -66,13 +54,13 @@ export function LoginForm({ setup }: { setup: boolean }) {
           className="field"
           type="password"
           value={password}
-          autoComplete={setup ? "new-password" : "current-password"}
+          autoComplete="current-password"
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       <button type="submit" className="btn-primary" disabled={saving}>
-        {saving ? "Сохраняем…" : setup ? "Создать вход хранителя" : "Войти"}
+        {saving ? "Входим…" : "Войти"}
       </button>
     </form>
   );

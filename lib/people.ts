@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Prisma, type Person } from "@prisma/client";
+import { dropAccountLink } from "@/lib/accounts";
 import { writeChangeLog } from "@/lib/changelog";
 import { computeClanFromGraph, listClans, resolvePersonClan, listClansFoundedBy, toClanDto } from "@/lib/clan";
 import { prisma } from "@/lib/db";
@@ -150,7 +151,15 @@ export async function updatePerson(
   return family;
 }
 
-export async function deletePerson(id: string): Promise<void> {
+/**
+ * Удаление человека. Вызывается только владельцем напрямую или при
+ * подтверждении заявки (lib/requests.ts). В журнал пишется полный снимок —
+ * по нему человека можно восстановить (restorePerson).
+ */
+export async function deletePerson(
+  id: string,
+  meta: { requestId?: string; reason?: string } = {},
+): Promise<void> {
   const person = await prisma.person.findUnique({
     where: { id },
     include: {
@@ -183,10 +192,119 @@ export async function deletePerson(id: string): Promise<void> {
           ...person.marriagesB.map((marriage) => marriage.personAId),
         ],
         foundedClans: person.foundedClans.map(toClanDto),
+        ...(meta.requestId ? { requestId: meta.requestId } : {}),
+        ...(meta.reason ? { reason: meta.reason } : {}),
       },
     });
     await tx.person.delete({ where: { id } });
   });
+  dropAccountLink(id);
+}
+
+type DeletedSnapshot = {
+  person: PersonDTO;
+  parentIds?: string[];
+  childIds?: string[];
+  spouseIds?: string[];
+  foundedClans?: Array<{ id: string }>;
+};
+
+/**
+ * Вернуть удалённого человека по записи журнала: та же карточка (тот же id),
+ * другие имена и связи с теми, кто ещё есть в древе.
+ */
+export async function restorePerson(logId: string): Promise<PersonDTO> {
+  const entry = await prisma.changeLog.findUnique({ where: { id: logId } });
+  if (!entry || entry.action !== "person.delete") {
+    throw new Error("Это не запись об удалении");
+  }
+  const snapshot = JSON.parse(entry.payload) as DeletedSnapshot;
+  const saved = snapshot.person;
+  if (!saved?.id) throw new Error("В записи нет снимка человека");
+  if (await prisma.person.findUnique({ where: { id: saved.id } })) {
+    throw new Error("Этот человек уже есть в древе");
+  }
+
+  const relatives = new Set([
+    ...(snapshot.parentIds ?? []),
+    ...(snapshot.childIds ?? []),
+    ...(snapshot.spouseIds ?? []),
+  ]);
+  const alive = new Set(
+    (
+      await prisma.person.findMany({
+        where: { id: { in: [...relatives] } },
+        select: { id: true },
+      })
+    ).map((row) => row.id),
+  );
+
+  const input = {
+    lastName: saved.lastName,
+    firstName: saved.firstName,
+    patronymic: saved.patronymic,
+    gender: saved.gender,
+    birthYear: saved.birthYear,
+    deathYear: saved.deathYear,
+    birthDateText: saved.birthDateText,
+    deathDateText: saved.deathDateText,
+    isLiving: saved.isLiving,
+    sourceNote: saved.sourceNote,
+    aliases: saved.aliases ?? [],
+    claimedClanId: saved.claimedClanId,
+    inCensus1886: saved.inCensus1886 ?? false,
+  } as PersonInput;
+
+  const claimedOk = input.claimedClanId
+    ? Boolean(await prisma.clan.findUnique({ where: { id: input.claimedClanId } }))
+    : true;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.person.create({
+      data: {
+        id: saved.id,
+        ...personScalarData({ ...input, claimedClanId: claimedOk ? input.claimedClanId : null }),
+        inCensus1886: input.inCensus1886,
+        aliases: { create: aliasCreates(input) },
+      },
+    });
+    for (const parentId of snapshot.parentIds ?? []) {
+      if (alive.has(parentId)) {
+        await tx.parentChild.create({ data: { parentId, childId: saved.id } });
+      }
+    }
+    for (const childId of snapshot.childIds ?? []) {
+      if (alive.has(childId)) {
+        await tx.parentChild.create({ data: { parentId: saved.id, childId } });
+      }
+    }
+    for (const spouseId of snapshot.spouseIds ?? []) {
+      if (!alive.has(spouseId)) continue;
+      const [personAId, personBId] = orderedPair(saved.id, spouseId);
+      await tx.marriage.create({ data: { personAId, personBId } });
+    }
+    for (const clan of snapshot.foundedClans ?? []) {
+      await tx.clan.updateMany({
+        where: { id: clan.id, founderId: null },
+        data: { founderId: saved.id },
+      });
+    }
+    await writeChangeLog(tx, {
+      action: "person.restore",
+      personId: saved.id,
+      payload: {
+        fromLogId: logId,
+        relinked: [...alive],
+        missing: [...relatives].filter((id) => !alive.has(id)),
+      },
+    });
+  });
+
+  const person = await prisma.person.findUnique({
+    where: { id: saved.id },
+    include: { aliases: true },
+  });
+  return toDto(person!);
 }
 
 type HitOptions = {

@@ -1,3 +1,4 @@
+import { requireViewer } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { getKinship } from "@/lib/people";
 
@@ -5,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
+    await requireViewer();
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from") ?? "";
     const to = searchParams.get("to") ?? "";

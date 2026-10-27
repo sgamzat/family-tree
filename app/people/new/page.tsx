@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { CreatePersonForm } from "@/components/create-person-form";
-import { currentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { canEdit, pageUser } from "@/lib/auth";
 
 export default async function NewPersonPage({
   searchParams,
@@ -10,7 +10,8 @@ export default async function NewPersonPage({
 }) {
   const { census } = await searchParams;
   const fromCensus = census === "1886";
-  const user = await currentUser();
+  const user = await pageUser(fromCensus ? "/people/new?census=1886" : "/people/new");
+  if (!canEdit(user.role)) redirect("/");
 
   return (
     <div className="grid gap-5">
@@ -23,16 +24,6 @@ export default async function NewPersonPage({
             ? "Если такое имя уже есть в древе, выберите карточку. Новый человек не создаётся."
             : "Если такое ФИО уже вводили, выберите карточку — так деревья жителей срастутся в одно."}
         </p>
-        {user ? null : (
-          <p className="mt-2 text-sm">
-            <Link
-              href={`/login?next=${encodeURIComponent(fromCensus ? "/people/new?census=1886" : "/people/new")}`}
-              className="font-medium text-[var(--accent)]"
-            >
-              Чтобы карточка сохранилась, войдите
-            </Link>
-          </p>
-        )}
       </div>
       <Suspense>
         <CreatePersonForm census={fromCensus} />

@@ -1,4 +1,4 @@
-import { requireKeeper, requireWriter } from "@/lib/auth";
+import { requireEditor, requireKeeper } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { parsePersonInput } from "@/lib/names";
 import {
@@ -27,7 +27,7 @@ function relationArgs(source: Record<string, unknown> | URLSearchParams) {
 
 export async function POST(request: Request) {
   try {
-    await requireWriter();
+    await requireEditor();
     const body = (await request.json()) as Record<string, unknown>;
     const personId = String(body.personId ?? "").trim();
     if (!personId) throw new Error("Не указан человек");

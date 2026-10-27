@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HomeSearch } from "@/components/home-search";
-import { currentUser, type CurrentUser } from "@/lib/auth";
+import { pageUser, type CurrentUser } from "@/lib/auth";
 import { censusProgress, clanCounts, type CensusProgress, type ClanCount } from "@/lib/census";
 import { listClans } from "@/lib/clan";
 import { prisma } from "@/lib/db";
@@ -84,81 +84,6 @@ function Clans({ rows }: { rows: ClanCount[] }) {
         ))}
       </ul>
     </section>
-  );
-}
-
-function GuestHome({ progress, clans }: { progress: CensusProgress; clans: ClanCount[] }) {
-  return (
-    <div className="home-page">
-      <section className="home-hero">
-        <p className="kicker kicker-census">Перепись 1886 · наши дни</p>
-        <h1>От переписи 1886 года до наших дней</h1>
-        <p className="home-lead">
-          Найдите себя или предка и соедините свою линию с переписью.
-        </p>
-        <HomeSearch />
-      </section>
-
-      <nav className="home-doors" aria-label="С чего начать">
-        <Link href="/people/new" className="home-door">
-          <span className="home-door-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" />
-            </svg>
-          </span>
-          <span className="home-door-text">
-            <span className="home-door-title">Начать с себя</span>
-            <span className="home-door-hint">
-              Внесите себя, родителей и дедов — и поднимайтесь к переписи
-            </span>
-          </span>
-          <Chevron />
-        </Link>
-        <Link href="/census" className="home-door home-door-census">
-          <span className="home-door-icon home-door-icon-census" aria-hidden="true">
-            1886
-          </span>
-          <span className="home-door-text">
-            <span className="home-door-title">Найти предка в переписи</span>
-            <span className="home-door-hint">
-              Откройте список 1886 года и спускайтесь к детям и внукам
-            </span>
-          </span>
-          <Chevron />
-        </Link>
-      </nav>
-
-      <Progress progress={progress} />
-      <Clans rows={clans} />
-
-      <section className="home-steps">
-        <h2>Как это работает</h2>
-        <ol>
-          <li>
-            <span className="home-step-number serif" aria-hidden="true">1</span>
-            <span>Найдите себя или внесите, если вас ещё нет</span>
-          </li>
-          <li>
-            <span className="home-step-number serif" aria-hidden="true">2</span>
-            <span>Добавьте отца, деда и прадеда — кого помните</span>
-          </li>
-          <li>
-            <span className="home-step-number serif" aria-hidden="true">3</span>
-            <span>Когда линия дойдёт до 1886 года, она соединится с переписью</span>
-          </li>
-        </ol>
-      </section>
-
-      <section className="home-about">
-        <h2>О селе и переписи</h2>
-        <p>
-          Здесь будет рассказ о селе: как оно называется, где стоит и что жители
-          считают важным передать детям. И о том, откуда взялся лист переписи
-          1886 года.
-        </p>
-      </section>
-    </div>
   );
 }
 
@@ -297,11 +222,11 @@ async function MemberHome({
 }
 
 export default async function HomePage() {
-  const [kin, clanList, user] = await Promise.all([loadKinGraph(), listClans(), currentUser()]);
+  const user = await pageUser("/");
+  const [kin, clanList] = await Promise.all([loadKinGraph(), listClans()]);
   const graph = indexGraph(kin);
   const progress = censusProgress(graph);
   const clans = clanCounts(graph, clanList).slice(0, CLANS_ON_HOME);
 
-  if (!user) return <GuestHome progress={progress} clans={clans} />;
   return <MemberHome user={user} graph={graph} progress={progress} clans={clans} />;
 }

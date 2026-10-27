@@ -1,73 +1,30 @@
-import {
-  assertAccount,
-  clearSessionCookie,
-  hashPassword,
-  normalizeLogin,
-  setSessionCookie,
-  verifyPassword,
-  type SessionUser,
-} from "@/lib/auth";
-import { writeChangeLog } from "@/lib/changelog";
-import { prisma } from "@/lib/db";
+import { appendAuthEvent, updateAccount } from "@/lib/accounts";
+import { clearSessionCookie, currentUser, signIn } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
-function publicUser(user: {
-  id: string;
-  name: string;
-  login: string;
-  role: string;
-}): SessionUser {
-  return {
-    id: user.id,
-    name: user.name,
-    login: user.login,
-    role: user.role === "admin" ? "admin" : "editor",
-  };
-}
-
+/** Вход. Аккаунты заводит владелец — самостоятельной регистрации нет. */
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
-    const login = normalizeLogin(body.login);
-    const password = String(body.password ?? "");
-    const count = await prisma.user.count();
-
-    if (count === 0) {
-      const name = String(body.name ?? "").trim();
-      assertAccount({ name, login, password });
-      const user = await prisma.user.create({
-        data: {
-          name,
-          login,
-          passwordHash: hashPassword(password),
-          role: "admin",
-        },
-      });
-      await writeChangeLog(prisma, {
-        action: "user.create",
-        actor: name,
-        payload: { login, role: "admin" },
-      });
-      const session = publicUser(user);
-      await setSessionCookie(session);
-      return Response.json({ user: session }, { status: 201 });
-    }
-
-    const user = await prisma.user.findUnique({ where: { login } });
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      return jsonError(new Error("Неверный логин или пароль"), 401);
-    }
-    const session = publicUser(user);
-    await setSessionCookie(session);
-    return Response.json({ user: session });
+    const user = await signIn(body.login, String(body.password ?? ""));
+    return Response.json({ user });
   } catch (error) {
     return jsonError(error);
   }
 }
 
-export async function DELETE() {
+/** Выход. С ?all=1 — выйти на всех устройствах (старые сессии гаснут). */
+export async function DELETE(request: Request) {
+  const user = await currentUser();
+  const all = new URL(request.url).searchParams.get("all") === "1";
+  if (user && all) {
+    updateAccount(user.id, { bumpSessions: true });
+    appendAuthEvent({ type: "logout.all", userId: user.id, login: user.login });
+  } else if (user) {
+    appendAuthEvent({ type: "logout", userId: user.id, login: user.login });
+  }
   await clearSessionCookie();
   return Response.json({ ok: true });
 }

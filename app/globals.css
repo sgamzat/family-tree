@@ -307,6 +307,196 @@ body:has(.home-member) .site-search-icon {
   font-weight: 600;
 }
 
+.account-button {
+  position: relative;
+}
+
+.account-dot {
+  position: absolute;
+  left: 1.7rem;
+  top: 0.35rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid var(--paper);
+  border-radius: 999px;
+  background: var(--kin);
+}
+
+.account-count {
+  margin-left: auto;
+  min-width: 1.5rem;
+  border-radius: 999px;
+  background: var(--kin);
+  padding: 0 0.45rem;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4rem;
+  text-align: center;
+}
+
+/* --- Вход, раздел хранителя ------------------------------------------------ */
+.login-page {
+  display: grid;
+  width: 100%;
+  max-width: 26rem;
+  gap: 1.5rem;
+  margin: 1.5rem auto 0;
+}
+
+.login-page h1 {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.login-setup {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--card);
+  padding: 1rem;
+}
+
+.login-setup pre,
+.admin-page pre {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: var(--slot);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.admin-page {
+  display: grid;
+  gap: 2rem;
+  padding-bottom: 2rem;
+}
+
+.admin-page h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.admin-page h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.admin-lead {
+  margin-top: 0.3rem;
+  color: var(--muted);
+}
+
+.admin-card {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--card);
+  padding: 0.9rem 1rem;
+}
+
+.admin-card.is-done {
+  background: transparent;
+}
+
+.admin-meta {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.admin-tag {
+  display: inline-flex;
+  border-radius: 999px;
+  background: var(--slot);
+  padding: 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4rem;
+}
+
+.admin-tag.is-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.admin-tag.is-ok {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-actions .btn-primary,
+.admin-actions .btn-danger {
+  width: auto;
+  padding-inline: 1.1rem;
+}
+
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.admin-filters a {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  padding: 0 0.85rem;
+  font-size: 0.875rem;
+}
+
+.admin-filters a.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.log-list {
+  display: grid;
+}
+
+.log-row {
+  display: grid;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.7rem 0;
+}
+
+.log-row details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.log-diff {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.log-diff del {
+  color: var(--danger);
+}
+
+.log-diff ins {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
 .account-caret {
   display: none;
   color: var(--muted);
