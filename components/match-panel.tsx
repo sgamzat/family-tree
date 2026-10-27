@@ -7,60 +7,70 @@ import { formatFio, searchHitCaption, type Gender, type SearchHit } from "@/lib/
 type Props = {
   hits: SearchHit[];
   loading: boolean;
-  /** Пол того, кого сейчас вводят: от него зависят «он/она» и «Это он/Это она». */
+  /** Пол того, кого сейчас вводят: от него зависят «он/она». */
   gender: Gender;
-  /** ФИО из формы — показываем в подтверждении «создать нового». */
-  typedName: string;
   saving: boolean;
-  confirmingNew: boolean;
+  /** «Нет, это другой человек» уже нажато — показываем одну строку. */
+  dismissed: boolean;
+  /** Подсветить: пытались сохранить, не ответив на вопрос. */
+  attention?: boolean;
   onPick: (hit: SearchHit) => void;
-  onAskNew: () => void;
-  onCancelNew: () => void;
-  onCreateNew: () => void;
+  onDismiss: () => void;
+  onUndo: () => void;
 };
 
 /**
- * Совпадения при вводе человека: «Это он» соединяет семьи в одну карточку,
- * «другой человек» создаёт тёзку или однофамильца — после явного подтверждения.
+ * Совпадения сразу под именем: «Это он» соединяет семьи в одну карточку и
+ * дальше заполнять ничего не нужно; «другой человек» — дописываем тёзку.
  */
 export function MatchPanel({
   hits,
   loading,
   gender,
-  typedName,
   saving,
-  confirmingNew,
+  dismissed,
+  attention = false,
   onPick,
-  onAskNew,
-  onCancelNew,
-  onCreateNew,
+  onDismiss,
+  onUndo,
 }: Props) {
   const ref = useRef<HTMLElement>(null);
-  const hadHits = useRef(false);
   const male = gender === "male";
+  const namesake = male ? "тёзка или однофамилец" : "тёзка или однофамилица";
 
-  // Когда совпадения появились впервые — прокручиваем к ним, чтобы их не пропустили.
   useEffect(() => {
-    if (hits.length > 0 && !hadHits.current) {
-      ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-    hadHits.current = hits.length > 0;
-  }, [hits.length]);
+    if (attention) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [attention]);
 
   if (loading && hits.length === 0) {
     return <p className="match-wait">Проверяем, нет ли {male ? "его" : "её"} уже в древе…</p>;
   }
   if (hits.length === 0) return null;
 
+  if (dismissed) {
+    return (
+      <p className="match-dismissed">
+        Внесём как нового человека — {namesake}.{" "}
+        <button type="button" className="quiet-link" onClick={onUndo}>
+          Показать похожих
+        </button>
+      </p>
+    );
+  }
+
   return (
-    <section ref={ref} className="match-panel" aria-labelledby="match-title">
+    <section
+      ref={ref}
+      className={`match-panel${attention ? " is-attention" : ""}`}
+      aria-labelledby="match-title"
+    >
       <div>
         <p className="match-title serif" id="match-title">
           {male ? "Возможно, он уже есть в древе" : "Возможно, она уже есть в древе"}
         </p>
         <p className="match-lead">
-          Если это тот же человек, выберите {male ? "его" : "её"}: семьи сойдутся в одну
-          карточку, и никто не будет вносить предков заново.
+          Если это {male ? "он" : "она"}, нажмите «{male ? "Это он" : "Это она"}» — дальше заполнять
+          ничего не нужно, семьи сойдутся в одну карточку.
         </p>
       </div>
 
@@ -90,26 +100,9 @@ export function MatchPanel({
         })}
       </ul>
 
-      {confirmingNew ? (
-        <div className="match-confirm" role="alert">
-          <p>
-            Создадим нового человека{typedName ? <> «{typedName}»</> : null}. С теми, кто выше, {male ? "он" : "она"}{" "}
-            связан{male ? "" : "а"} не будет — это {male ? "тёзка или однофамилец" : "тёзка или однофамилица"}.
-          </p>
-          <div className="match-confirm-actions">
-            <button type="button" className="btn-primary" disabled={saving} onClick={onCreateNew}>
-              {saving ? "Сохраняем…" : "Да, создать нового"}
-            </button>
-            <button type="button" className="match-back" disabled={saving} onClick={onCancelNew}>
-              Назад
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button type="button" className="match-new" disabled={saving} onClick={onAskNew}>
-          Нет, это другой человек — {male ? "тёзка или однофамилец" : "тёзка или однофамилица"}
-        </button>
-      )}
+      <button type="button" className="match-new" disabled={saving} onClick={onDismiss}>
+        Нет, это другой человек — {namesake}
+      </button>
     </section>
   );
 }

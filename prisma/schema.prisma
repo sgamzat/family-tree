@@ -24,6 +24,8 @@ model Person {
   deathDateText  String   @default("")
   isLiving       Boolean?
   sourceNote     String   @default("")
+  /// Кем был человек: внешность, ремесло, образование, чем запомнился.
+  description    String   @default("")
   claimedClanId  String?
   inCensus1886   Boolean  @default(false)
   createdAt      DateTime @default(now())

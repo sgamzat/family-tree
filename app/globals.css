@@ -898,6 +898,230 @@ body:has(.home-member) .page-main {
   background: var(--female);
 }
 
+/* Карточка человека: форма */
+.person-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.person-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.person-field {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+}
+
+.person-field > span,
+.person-field > legend {
+  margin-bottom: 0.05rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.person-description {
+  min-height: 5.5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.person-form textarea.field {
+  font: inherit;
+  resize: vertical;
+}
+
+.person-form-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.person-form-hint.is-census {
+  border-radius: 0.75rem;
+  background: var(--census-soft);
+  padding: 0.6rem 0.8rem;
+  color: var(--census-ink);
+}
+
+.person-form-warning {
+  border-radius: 0.65rem;
+  background: var(--census-soft);
+  padding: 0.5rem 0.75rem;
+  color: var(--census-ink);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.person-form-submit {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.person-anchor {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--card);
+  padding: 0.85rem;
+}
+
+/* Переключатель из 2–4 вариантов */
+.segmented {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.75rem;
+  background: var(--card);
+}
+
+.segmented label {
+  position: relative;
+  display: flex;
+  min-height: 2.75rem;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.6rem;
+  color: var(--ink);
+  font-size: 0.95rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.segmented label + label {
+  border-left: 1px solid var(--line);
+}
+
+.segmented label.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.segmented label:focus-within {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented.is-wrap {
+  flex-wrap: wrap;
+}
+
+.segmented.is-wrap label {
+  flex: 1 1 40%;
+}
+
+.person-more {
+  border-top: 1px solid var(--line);
+  padding-top: 0.25rem;
+}
+
+.person-more summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.person-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.person-more summary::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: auto;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.person-more[open] summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.person-more summary span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-more-body {
+  padding: 0.25rem 0 0.5rem;
+}
+
+/* После сохранения родственника — «Продолжим?» */
+.added {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.added-title {
+  font-family: var(--font-lora), Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.added-lead {
+  color: var(--muted);
+}
+
+.added-next {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.added-step {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: 0 1rem;
+  color: var(--ink);
+  font-weight: 600;
+  text-align: left;
+}
+
+.added-step:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.added-step span:last-child {
+  color: var(--accent);
+  font-size: 1.25rem;
+}
+
+.added-actions {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
 /* Совпадения при вводе человека */
 .match-wait {
   color: var(--muted);
@@ -1016,6 +1240,16 @@ body:has(.home-member) .page-main {
   min-height: 2.75rem;
   color: var(--muted);
   font-weight: 600;
+}
+
+.match-panel.is-attention {
+  border-color: var(--census);
+  box-shadow: 0 0 0 3px #e9cfae;
+}
+
+.match-dismissed {
+  color: var(--muted);
+  font-size: 0.875rem;
 }
 
 .match-pick:disabled,
@@ -2774,6 +3008,39 @@ body:has(.echo-page) .page-main {
   margin-top: 0.25rem;
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+.echo-who .echo-about {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  border-left: 3px solid var(--line-strong);
+  padding: 0.1rem 0 0.1rem 0.75rem;
+}
+
+.echo-who .echo-about p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.echo-who .echo-about .echo-about-title {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.echo-about-add {
+  min-height: 2.5rem;
+  margin-top: 0.35rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
 }
 
 .echo-warn {

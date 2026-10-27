@@ -1,18 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { PersonFields, emptyPersonForm } from "@/components/person-fields";
+import { PersonExtras } from "@/components/person-extras";
+import { PersonFields, emptyPersonForm, formToInput, splitDate } from "@/components/person-fields";
 import { Sheet } from "@/components/sheet";
 import { MatchPanel } from "@/components/match-panel";
 import { api } from "@/lib/api";
 import {
-  formatFio,
+  genitive,
   parsePersonInput,
-  relationTitle,
+  relativeYearWarning,
   suggestRelativeNames,
   type FamilyDTO,
   type Gender,
+  type PersonDTO,
   type RelationRole,
 } from "@/lib/names";
 import { usePersonSearch } from "@/lib/use-person-search";
@@ -23,6 +26,8 @@ type Props = {
   family: FamilyDTO;
   onClose: () => void;
   onSaved: () => void;
+  /** «Продолжить»: добавить ещё одного родственника тому же человеку. */
+  onAgain?: (role: RelationRole) => void;
 };
 
 function defaultGender(role: RelationRole, personGender: Gender): Gender {
@@ -32,11 +37,68 @@ function defaultGender(role: RelationRole, personGender: Gender): Gender {
   return "male";
 }
 
-export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: Props) {
+/** «Отец Гасан-Гусейна», «Жена Гамзата», «Ребёнок Розы». */
+function sheetTitle(role: RelationRole, person: PersonDTO): string {
+  const whose = genitive(person.firstName, person.gender);
+  const noun =
+    role === "father"
+      ? "Отец"
+      : role === "mother"
+        ? "Мать"
+        : role === "spouse"
+          ? person.gender === "male"
+            ? "Жена"
+            : "Муж"
+          : "Ребёнок";
+  return `${noun} ${whose}`;
+}
+
+function relationWord(role: RelationRole, saved: PersonDTO, anchor: PersonDTO): string {
+  const whose = genitive(anchor.firstName, anchor.gender);
+  if (role === "father") return `отец ${whose}`;
+  if (role === "mother") return `мать ${whose}`;
+  if (role === "spouse") return `${saved.gender === "male" ? "муж" : "жена"} ${whose}`;
+  return `${saved.gender === "male" ? "сын" : "дочь"} ${whose}`;
+}
+
+/** Кто появился после сохранения: новый человек или выбранный из древа. */
+function findSaved(role: RelationRole, before: FamilyDTO, after: FamilyDTO, pickedId?: string) {
+  const all = [after.father, after.mother, ...after.spouses, ...after.children].filter(
+    (person): person is PersonDTO => Boolean(person),
+  );
+  if (pickedId) return all.find((person) => person.id === pickedId) ?? null;
+  if (role === "father") return after.father;
+  if (role === "mother") return after.mother;
+  const known = new Set((role === "spouse" ? before.spouses : before.children).map((p) => p.id));
+  return (role === "spouse" ? after.spouses : after.children).find((p) => !known.has(p.id)) ?? null;
+}
+
+type Next = { label: string; href?: string; again?: RelationRole };
+
+function nextSteps(role: RelationRole, saved: PersonDTO, family: FamilyDTO): Next[] {
+  const of = genitive(saved.firstName, saved.gender);
+  const anchor = family.person;
+  const steps: Next[] = [];
+  if (role === "father" || role === "mother") {
+    steps.push({ label: `Отец ${of}`, href: `/people/${saved.id}?add=father` });
+    steps.push({ label: `Мать ${of}`, href: `/people/${saved.id}?add=mother` });
+    if (role === "father" && !family.mother) steps.push({ label: `Мать ${genitive(anchor.firstName, anchor.gender)}`, again: "mother" });
+    if (role === "mother" && !family.father) steps.push({ label: `Отец ${genitive(anchor.firstName, anchor.gender)}`, again: "father" });
+  } else if (role === "child") {
+    steps.push({ label: `Ещё ребёнок ${genitive(anchor.firstName, anchor.gender)}`, again: "child" });
+    steps.push({ label: `${saved.gender === "male" ? "Жена" : "Муж"} ${of}`, href: `/people/${saved.id}?add=spouse` });
+    steps.push({ label: `Дети ${of}`, href: `/people/${saved.id}?add=child` });
+  } else {
+    steps.push({ label: `Ребёнок ${genitive(anchor.firstName, anchor.gender)}`, again: "child" });
+    steps.push({ label: `Отец ${of}`, href: `/people/${saved.id}?add=father` });
+  }
+  return steps;
+}
+
+export function AddRelativeSheet({ personId, role, family, onClose, onSaved, onAgain }: Props) {
   const router = useRouter();
   const genderLocked = role === "father" || role === "mother";
-  const maleSpouse =
-    family.spouses.find((spouse) => spouse.gender === "male") ?? null;
+  const maleSpouse = family.spouses.find((spouse) => spouse.gender === "male") ?? null;
   const initialGender = defaultGender(role, family.person.gender);
   const suggested = suggestRelativeNames(role, family.person, {
     childGender: initialGender,
@@ -50,6 +112,7 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
   }));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<PersonDTO | null>(null);
   const hint = suggestRelativeNames(role, family.person, {
     childGender: form.gender,
     spouse: maleSpouse,
@@ -67,12 +130,8 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
       });
       setForm({
         ...next,
-        lastName:
-          form.lastName === previous.lastName ? updated.lastName : next.lastName,
-        patronymic:
-          form.patronymic === previous.patronymic
-            ? updated.patronymic
-            : next.patronymic,
+        lastName: form.lastName === previous.lastName ? updated.lastName : next.lastName,
+        patronymic: form.patronymic === previous.patronymic ? updated.patronymic : next.patronymic,
       });
       return;
     }
@@ -102,19 +161,31 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
     match: true,
   });
   const nameKey = [form.lastName, form.firstName, form.patronymic, form.gender].join("|");
-  const [confirmKey, setConfirmKey] = useState("");
-  const confirmingNew = hits.length > 0 && confirmKey === nameKey;
+  const [dismissKey, setDismissKey] = useState("");
+  const [attentionKey, setAttentionKey] = useState("");
+  const dismissed = dismissKey === nameKey;
+  const unanswered = hits.length > 0 && !dismissed;
 
-  async function linkExisting(existingPersonId: string) {
+  const warning = relativeYearWarning(
+    role,
+    family.person,
+    splitDate(form.born).year,
+    splitDate(form.died).year,
+    form.gender,
+  );
+
+  async function send(body: Record<string, unknown>, pickedId?: string) {
     setSaving(true);
     setError("");
     try {
-      await api("/api/relations", {
+      const after = await api<FamilyDTO>("/api/relations", {
         method: "POST",
-        body: JSON.stringify({ personId, role, existingPersonId }),
+        body: JSON.stringify({ personId, role, ...body }),
       });
-      onSaved();
       router.refresh();
+      const person = findSaved(role, family, after, pickedId);
+      if (person) setSaved(person);
+      else onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось сохранить");
     } finally {
@@ -122,67 +193,111 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
     }
   }
 
-  async function createAndLink() {
-    if (hits.length > 0 && !confirmingNew) {
-      setConfirmKey(nameKey);
+  function create() {
+    if (unanswered) {
+      setAttentionKey(nameKey);
+      setError("");
       return;
     }
-    setSaving(true);
-    setError("");
+    let newPerson;
     try {
-      const newPerson = parsePersonInput({
-        ...form,
-        birthYear: form.birthYear,
-        deathYear: form.deathYear,
-      });
-      await api("/api/relations", {
-        method: "POST",
-        body: JSON.stringify({
-          personId,
-          role,
-          newPerson,
-          namesakeOf: hits.map((hit) => hit.id),
-        }),
-      });
-      onSaved();
-      router.refresh();
+      newPerson = parsePersonInput(formToInput(form));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить");
-    } finally {
-      setSaving(false);
+      setError(err instanceof Error ? err.message : "Проверьте поля");
+      return;
     }
+    void send({ newPerson, namesakeOf: hits.map((hit) => hit.id) });
+  }
+
+  if (saved) {
+    return (
+      <Sheet title="Добавлено" onClose={onSaved}>
+        <div className="added">
+          <p className="added-title">
+            {saved.firstName} — {relationWord(role, saved, family.person)}
+          </p>
+          <p className="added-lead">
+            {role === "father" || role === "mother"
+              ? "Линия стала на поколение длиннее. Продолжим?"
+              : "Продолжим?"}
+          </p>
+          <ul className="added-next">
+            {nextSteps(role, saved, family).map((step) => (
+              <li key={step.label}>
+                {step.href ? (
+                  <Link href={step.href} className="added-step" onClick={onSaved}>
+                    <span>{step.label}</span>
+                    <span aria-hidden="true">+</span>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="added-step"
+                    onClick={() => (onAgain && step.again ? onAgain(step.again) : onSaved())}
+                  >
+                    <span>{step.label}</span>
+                    <span aria-hidden="true">+</span>
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="added-actions">
+            <button type="button" className="btn-primary" onClick={onSaved}>
+              Готово
+            </button>
+            <Link href={`/people/${saved.id}`} className="home-line-more" onClick={onSaved}>
+              Открыть карточку {genitive(saved.firstName, saved.gender)}
+            </Link>
+          </div>
+        </div>
+      </Sheet>
+    );
   }
 
   return (
-    <Sheet title={relationTitle(role)} onClose={onClose}>
-      {hint ? (
-        <p className="mb-4 text-sm leading-5 text-[var(--muted)]">{hint}</p>
-      ) : null}
-      <PersonFields value={form} onChange={changeForm} lockGender={genderLocked} />
-      <div className="mt-4 grid gap-3">
-        <MatchPanel
-          hits={hits}
-          loading={loading}
-          gender={form.gender}
-          typedName={formatFio(form)}
-          saving={saving}
-          confirmingNew={confirmingNew}
-          onPick={(hit) => void linkExisting(hit.id)}
-          onAskNew={() => setConfirmKey(nameKey)}
-          onCancelNew={() => setConfirmKey("")}
-          onCreateNew={() => void createAndLink()}
-        />
-        {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-        {hits.length === 0 ? (
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={saving || loading}
-            onClick={() => void createAndLink()}
-          >
-            {saving ? "Сохраняем…" : "Создать и связать"}
-          </button>
+    <Sheet title={sheetTitle(role, family.person)} onClose={onClose}>
+      {hint ? <p className="person-form-hint">{hint}</p> : null}
+      <PersonFields
+        value={form}
+        onChange={changeForm}
+        lockGender={genderLocked}
+        dateWarning={warning}
+        afterName={
+          <MatchPanel
+            hits={hits}
+            loading={loading}
+            gender={form.gender}
+            saving={saving}
+            dismissed={dismissed}
+            attention={attentionKey === nameKey && unanswered}
+            onPick={(hit) => void send({ existingPersonId: hit.id }, hit.id)}
+            onDismiss={() => setDismissKey(nameKey)}
+            onUndo={() => setDismissKey("")}
+          />
+        }
+        extras={<PersonExtras value={form} onChange={setForm} />}
+      />
+      <div className="person-form-submit">
+        {attentionKey === nameKey && unanswered ? (
+          <p className="person-form-warning">
+            Сначала ответьте выше: это {form.gender === "male" ? "он" : "она"} или другой человек.
+          </p>
         ) : null}
+        {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+        <button type="button" className="btn-primary" disabled={saving} onClick={create}>
+          {saving
+            ? "Сохраняем…"
+            : role === "father"
+              ? "Добавить отца"
+              : role === "mother"
+                ? "Добавить мать"
+                : role === "spouse"
+                  ? family.person.gender === "male"
+                    ? "Добавить жену"
+                    : "Добавить мужа"
+                  : "Добавить ребёнка"}
+        </button>
       </div>
     </Sheet>
   );

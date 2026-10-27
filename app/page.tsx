@@ -88,7 +88,7 @@ function Village({
         {progress.total > 0 ? (
           <div className="home-stat-census">
             <dt>
-              <Link href="/census?show=unlinked">из переписи 1886 связаны с живущими</Link>
+              <Link href="/census?show=unlinked">из переписи 1886 — с потомками до наших дней</Link>
             </dt>
             <dd className="serif">
               {progress.linked}

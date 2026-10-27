@@ -25,8 +25,6 @@ export function PersonHeading({
 }) {
   const [editing, setEditing] = useState(false);
   const years = personYears(person);
-  const living =
-    person.isLiving === true ? "жив" : person.isLiving === false ? "умер" : "";
   const clanHint = clan.computed
     ? `Тухум: ${clan.computed.name}`
     : clan.claimed
@@ -40,7 +38,7 @@ export function PersonHeading({
           {formatFio(person)}
         </h1>
         <p className="mt-1 text-[var(--muted)]">
-          {[years, living, person.gender === "male" ? "мужчина" : "женщина"]
+          {[years, person.gender === "male" ? "мужчина" : "женщина"]
             .filter(Boolean)
             .join(" · ")}
         </p>

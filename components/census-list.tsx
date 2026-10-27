@@ -65,8 +65,8 @@ export function CensusList({
           caption={
             linkedIds
               ? linked.has(person.id)
-                ? "связан с живущими"
-                : "пока не связан с живущими"
+                ? "потомки до наших дней внесены"
+                : "потомки ещё не внесены"
               : null
           }
         />

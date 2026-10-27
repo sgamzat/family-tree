@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PersonExtras } from "@/components/person-extras";
-import { PersonFields, personToForm } from "@/components/person-fields";
+import { PersonFields, formToInput, personToForm } from "@/components/person-fields";
 import { Sheet } from "@/components/sheet";
 import { api } from "@/lib/api";
 import { parsePersonInput, formatFio, type ClanDTO, type FamilyDTO, type PersonDTO } from "@/lib/names";
@@ -40,7 +40,7 @@ export function EditPersonSheet({
     try {
       await api<FamilyDTO>(`/api/people/${person.id}`, {
         method: "PATCH",
-        body: JSON.stringify(parsePersonInput(form)),
+        body: JSON.stringify(parsePersonInput(formToInput(form, { inCensus1886: person.inCensus1886 }))),
       });
       onClose();
       router.refresh();
@@ -96,6 +96,7 @@ export function EditPersonSheet({
       <PersonFields
         value={form}
         onChange={setForm}
+        moreHint="другие имена, откуда известно, тухум"
         extras={
           <PersonExtras
             value={form}

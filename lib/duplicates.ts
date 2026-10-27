@@ -83,6 +83,7 @@ export async function findDuplicatePairs(limit = 40): Promise<DuplicatePair[]> {
         deathDateText: person.deathDateText,
         isLiving: person.isLiving,
         sourceNote: person.sourceNote,
+        description: person.description,
         aliases: person.aliases.map((alias) => alias.name),
         claimedClanId: person.claimedClanId,
         inCensus1886: person.inCensus1886,
@@ -136,6 +137,15 @@ export async function findDuplicatePairs(limit = 40): Promise<DuplicatePair[]> {
   }
 
   return pairs.slice(0, limit);
+}
+
+/** Два описания одного человека не теряем: если разные — оставляем оба. */
+function mergeText(keep: string, drop: string): string {
+  const a = keep.trim();
+  const b = drop.trim();
+  if (!a || a === b || a.includes(b)) return a || b;
+  if (!b || b.includes(a)) return b || a;
+  return `${a}\n\n${b}`;
 }
 
 export async function mergePeople(keepId: string, dropId: string): Promise<PersonDTO> {
@@ -284,6 +294,7 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
         deathDateText: keep.deathDateText || drop.deathDateText,
         isLiving: keep.isLiving ?? drop.isLiving,
         sourceNote: keep.sourceNote || drop.sourceNote,
+        description: mergeText(keep.description, drop.description),
         claimedClanId: keep.claimedClanId ?? drop.claimedClanId,
         inCensus1886: keep.inCensus1886 || drop.inCensus1886,
         lastNameNorm: normalizeName(keep.lastName || drop.lastName),
@@ -330,6 +341,7 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
     deathDateText: merged.deathDateText,
     isLiving: merged.isLiving,
     sourceNote: merged.sourceNote,
+    description: merged.description,
     aliases: merged.aliases.map((alias) => alias.name),
     claimedClanId: merged.claimedClanId,
     inCensus1886: merged.inCensus1886,
