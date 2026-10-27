@@ -86,6 +86,9 @@ export function AccountMenu({
         <span className="account-initial serif" aria-hidden="true">
           {initial}
         </span>
+        <span className="account-first" aria-hidden="true">
+          {name.trim().split(/\s+/)[0]}
+        </span>
         {pending > 0 ? (
           <span className="account-dot" aria-label={`Ждут подтверждения: ${pending}`} />
         ) : null}

@@ -67,6 +67,7 @@ export function TreeWorkspace({
   me = { loggedIn: false, isMe: false, canClaim: false },
   openRole = null,
   openEdit = false,
+  initialView = null,
 }: {
   family: FamilyDTO;
   graph: KinGraph;
@@ -86,12 +87,14 @@ export function TreeWorkspace({
   /** Открыть сразу форму добавления родственника (ссылка с главной). */
   openRole?: RelationRole | null;
   openEdit?: boolean;
+  /** С какой вкладки открыть (ссылка на тухум с главной). */
+  initialView?: TreeView | null;
 }) {
   const router = useRouter();
   const personId = family.person.id;
 
   const [pane, setPane] = useState<"tree" | "card">("tree");
-  const [view, setView] = useState<TreeView>(kinWith ? "all" : "close");
+  const [view, setView] = useState<TreeView>(kinWith ? "all" : (initialView ?? "close"));
   const [role, setRole] = useState<RelationRole | null>(openRole);
   const [sibling, setSibling] = useState(false);
   const [editing, setEditing] = useState(openEdit);
