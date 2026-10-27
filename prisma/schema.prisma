@@ -33,6 +33,7 @@ model Person {
   asChild      ParentChild[] @relation("Child")
   marriagesA   Marriage[]    @relation("SpouseA")
   marriagesB   Marriage[]    @relation("SpouseB")
+  account      User?         @relation("Account")
 
   @@index([lastNameNorm])
   @@index([firstNameNorm])
@@ -101,7 +102,11 @@ model User {
   login        String   @unique
   passwordHash String
   role         String
+  /// Карточка этого жителя в древе («Это я»). Одна карточка — один аккаунт.
+  personId     String?  @unique
   createdAt    DateTime @default(now())
+
+  person Person? @relation("Account", fields: [personId], references: [id], onDelete: SetNull)
 }
 
 model ChangeLog {

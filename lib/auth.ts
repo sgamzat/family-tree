@@ -83,7 +83,12 @@ export function parseRole(value: unknown): UserRole {
   return value === "admin" ? "admin" : "editor";
 }
 
-export async function currentUser(): Promise<SessionUser | null> {
+export type CurrentUser = SessionUser & {
+  /** Карточка жителя в древе, если он отметил «Это я». */
+  personId: string | null;
+};
+
+export async function currentUser(): Promise<CurrentUser | null> {
   const jar = await cookies();
   const session = readSession(jar.get(COOKIE)?.value);
   if (!session) return null;
@@ -95,6 +100,7 @@ export async function currentUser(): Promise<SessionUser | null> {
     name: user.name,
     login: user.login,
     role: user.role,
+    personId: user.personId,
   };
 }
 

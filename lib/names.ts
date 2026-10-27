@@ -393,3 +393,34 @@ export function parseAliases(value: unknown): string[] {
   }
   return aliases;
 }
+
+/**
+ * Родительный падеж имени: «отец Руслана», «мать Розы», «отец Мусы».
+ * Склоняется только последняя часть составного имени (Гасан-Гусейн → Гасан-Гусейна).
+ * Женские имена на согласную и имена на другие гласные не склоняются
+ * (Патимат, Залму, Али) — как и в живой речи.
+ */
+export function genitive(name: string, gender: Gender): string {
+  const value = name.trim();
+  if (!value) return value;
+  const cut = Math.max(value.lastIndexOf("-"), value.lastIndexOf(" ")) + 1;
+  const head = value.slice(0, cut);
+  const word = value.slice(cut);
+  const lower = word.toLowerCase();
+  const last = lower.slice(-1);
+  const before = lower.slice(-2, -1);
+  const vowels = "аеёиоуыэюя";
+
+  let result = word;
+  if (lower.endsWith("ия")) {
+    result = `${word.slice(0, -1)}и`;
+  } else if (last === "а") {
+    result = `${word.slice(0, -1)}${"гкхжшщч".includes(before) ? "и" : "ы"}`;
+  } else if (last === "я") {
+    result = `${word.slice(0, -1)}и`;
+  } else if (gender === "male") {
+    if (last === "й" || last === "ь") result = `${word.slice(0, -1)}я`;
+    else if (!vowels.includes(last)) result = `${word}а`;
+  }
+  return head + result;
+}

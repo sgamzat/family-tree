@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PersonTile } from "@/components/person-tile";
 import { formatFio } from "@/lib/names";
 import { scrollFieldBelowHeader, useDropdownMax } from "@/lib/use-dropdown-max";
@@ -12,6 +12,16 @@ export function HomeSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Лупа в шапке ведёт на «/#find» — сразу ставим курсор в поиск.
+  useEffect(() => {
+    const focusIfAsked = () => {
+      if (window.location.hash === "#find") inputRef.current?.focus();
+    };
+    focusIfAsked();
+    window.addEventListener("hashchange", focusIfAsked);
+    return () => window.removeEventListener("hashchange", focusIfAsked);
+  }, []);
   const { hits, loading } = usePersonSearch({ query });
   const trimmed = query.trim();
   const showList = trimmed.length >= 2;
@@ -36,6 +46,7 @@ export function HomeSearch() {
           <span className="home-search-label">Кого вы ищете?</span>
           <input
             ref={inputRef}
+            id="find"
             className="field home-field"
             type="text"
             inputMode="search"

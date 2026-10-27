@@ -61,6 +61,9 @@ export function TreeWorkspace({
   doubledAncestors,
   keeper = false,
   kinWith = null,
+  me = { loggedIn: false, isMe: false, canClaim: false },
+  openRole = null,
+  openEdit = false,
 }: {
   family: FamilyDTO;
   graph: KinGraph;
@@ -69,15 +72,37 @@ export function TreeWorkspace({
   keeper?: boolean;
   /** Открыть сразу родство с этим человеком (ссылка «Показать на карте»). */
   kinWith?: PersonDTO | null;
+  /** Связан ли этот человек с аккаунтом того, кто смотрит. */
+  me?: { loggedIn: boolean; isMe: boolean; canClaim: boolean };
+  /** Открыть сразу форму добавления родственника (ссылка с главной). */
+  openRole?: RelationRole | null;
+  openEdit?: boolean;
 }) {
   const router = useRouter();
   const personId = family.person.id;
 
   const [pane, setPane] = useState<"tree" | "card">("tree");
   const [view, setView] = useState<TreeView>(kinWith ? "all" : "close");
-  const [role, setRole] = useState<RelationRole | null>(null);
+  const [role, setRole] = useState<RelationRole | null>(openRole);
   const [sibling, setSibling] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(openEdit);
+  const [claimBusy, setClaimBusy] = useState(false);
+
+  async function setItsMe(value: boolean) {
+    setClaimBusy(true);
+    setError("");
+    try {
+      await api("/api/me/person", {
+        method: value ? "POST" : "DELETE",
+        body: value ? JSON.stringify({ personId }) : undefined,
+      });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось сохранить");
+    } finally {
+      setClaimBusy(false);
+    }
+  }
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
 
@@ -248,6 +273,28 @@ export function TreeWorkspace({
         )}
         <h1>{formatFio(family.person) || family.person.firstName}</h1>
         {parentLine ? <p className="echo-parent">{parentLine}</p> : null}
+        {me.isMe ? (
+          <p className="echo-me">
+            <span className="echo-me-badge">Это вы</span>
+            <button
+              type="button"
+              className="echo-me-undo"
+              disabled={claimBusy}
+              onClick={() => void setItsMe(false)}
+            >
+              Это не я
+            </button>
+          </p>
+        ) : me.canClaim ? (
+          <button
+            type="button"
+            className="echo-claim"
+            disabled={claimBusy}
+            onClick={() => void setItsMe(true)}
+          >
+            Это я
+          </button>
+        ) : null}
         <p>
           {[years, family.person.gender === "male" ? "мужчина" : "женщина", clanHint]
             .filter(Boolean)
