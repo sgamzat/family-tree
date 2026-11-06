@@ -127,11 +127,7 @@ export function AddRelativeSheet({ personId, role, family, onClose, onSaved }: P
     setSaving(true);
     setError("");
     try {
-      const newPerson = parsePersonInput({
-        ...form,
-        birthYear: form.birthYear,
-        deathYear: form.deathYear,
-      });
+      const newPerson = parsePersonInput(form);
       await api("/api/relations", {
         method: "POST",
         body: JSON.stringify({ personId, role, newPerson }),

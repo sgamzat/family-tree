@@ -17,7 +17,11 @@ model Person {
   patronymicNorm String   @default("")
   gender         String
   birthYear      Int?
+  birthMonth     Int?
+  birthDay       Int?
   deathYear      Int?
+  deathMonth     Int?
+  deathDay       Int?
   birthDateText  String   @default("")
   deathDateText  String   @default("")
   isLiving       Boolean?
