@@ -37,7 +37,7 @@ export function PersonExtras({ value, onChange, clans, onClanCreated, founderId 
           rows={2}
           value={value.sourceNote}
           onChange={(event) => patch({ sourceNote: event.target.value })}
-          placeholder="Так рассказывала бабушка; запись в метрической книге"
+          placeholder="Так рассказывала бабушка; запись в книге"
         />
       </label>
       {clans && onClanCreated ? (
