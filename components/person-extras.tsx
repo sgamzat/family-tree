@@ -27,7 +27,7 @@ export function PersonExtras({
     <div className="grid gap-3">
       <div className="grid grid-cols-2 gap-3">
         <label className="grid gap-1">
-          <span className="text-sm text-[var(--muted)]">Дата рождения, словами</span>
+          <span className="text-sm text-[var(--muted)]">Примерная дата рождения</span>
           <input
             className="field"
             value={value.birthDateText}
@@ -36,7 +36,7 @@ export function PersonExtras({
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm text-[var(--muted)]">Дата смерти, словами</span>
+          <span className="text-sm text-[var(--muted)]">Примерная дата смерти</span>
           <input
             className="field"
             value={value.deathDateText}

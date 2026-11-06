@@ -284,7 +284,7 @@ function TreeCard({
   registerId?: string;
 }) {
   const register = useContext(RegisterCtx);
-  const years = personYears(person);
+  const years = personYears(person, { yearsOnly: true });
   const pathCount = doubledById?.[person.id];
   return (
     <Link

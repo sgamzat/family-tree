@@ -1,3 +1,5 @@
+import { EMPTY_DATE, checkPartialDate, compareDates, formatPartialDate, parseDateText, type PartialDate } from "@/lib/dates";
+
 export type Gender = "male" | "female";
 
 export type ClanDTO = {
@@ -20,7 +22,11 @@ export type PersonDTO = {
   patronymic: string;
   gender: Gender;
   birthYear: number | null;
+  birthMonth: number | null;
+  birthDay: number | null;
   deathYear: number | null;
+  deathMonth: number | null;
+  deathDay: number | null;
   birthDateText: string;
   deathDateText: string;
   isLiving: boolean | null;
@@ -53,7 +59,11 @@ export type PersonInput = {
   patronymic: string;
   gender: Gender;
   birthYear: number | null;
+  birthMonth: number | null;
+  birthDay: number | null;
   deathYear: number | null;
+  deathMonth: number | null;
+  deathDay: number | null;
   birthDateText: string;
   deathDateText: string;
   isLiving: boolean | null;
@@ -120,34 +130,63 @@ export function formatFio(person: {
     .join(" ");
 }
 
-export function formatYears(
-  birthYear: number | null,
-  deathYear: number | null,
-  birthDateText = "",
-  deathDateText = "",
-): string {
-  const birth = birthYear ? String(birthYear) : birthDateText.trim();
-  const death = deathYear ? String(deathYear) : deathDateText.trim();
-  if (birth && death) return `${birth}–${death}`;
-  if (birthYear && !death) return `род. ${birthYear}`;
-  if (birth && !death) return `род. ${birth}`;
-  if (deathYear && !birth) return `ум. ${deathYear}`;
-  if (death && !birth) return `ум. ${death}`;
-  return "";
-}
-
-export function personYears(person: {
+type DatedPerson = {
   birthYear: number | null;
+  birthMonth?: number | null;
+  birthDay?: number | null;
   deathYear: number | null;
+  deathMonth?: number | null;
+  deathDay?: number | null;
   birthDateText?: string;
   deathDateText?: string;
-}): string {
-  return formatYears(
-    person.birthYear,
-    person.deathYear,
-    person.birthDateText ?? "",
-    person.deathDateText ?? "",
-  );
+};
+
+function birthOf(person: DatedPerson): PartialDate {
+  return {
+    year: person.birthYear,
+    month: person.birthMonth ?? null,
+    day: person.birthDay ?? null,
+  };
+}
+
+function deathOf(person: DatedPerson): PartialDate {
+  return {
+    year: person.deathYear,
+    month: person.deathMonth ?? null,
+    day: person.deathDay ?? null,
+  };
+}
+
+/** Birth date as typed in the form: "12.05.1952", "1952" or "". */
+export function birthDateLabel(person: DatedPerson): string {
+  return formatPartialDate(birthOf(person));
+}
+
+/** Death date as typed in the form: "03.02.2001", "2001" or "". */
+export function deathDateLabel(person: DatedPerson): string {
+  return formatPartialDate(deathOf(person));
+}
+
+/**
+ * Life span without words: "12.05.1952 – 03.02.2001", "12.05.1952",
+ * "? – 2001". With `yearsOnly` (compact tree cards) only years are shown.
+ */
+export function personYears(
+  person: DatedPerson,
+  options: { yearsOnly?: boolean } = {},
+): string {
+  const exact = (date: PartialDate) =>
+    options.yearsOnly
+      ? date.year
+        ? String(date.year)
+        : ""
+      : formatPartialDate(date);
+  const birth = exact(birthOf(person)) || (person.birthDateText ?? "").trim();
+  const death = exact(deathOf(person)) || (person.deathDateText ?? "").trim();
+  if (birth && death) return `${birth} – ${death}`;
+  if (birth) return birth;
+  if (death) return `? – ${death}`;
+  return "";
 }
 
 export function searchHitCaption(hit: SearchHit): string {
@@ -340,10 +379,11 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
   if (!firstName) throw new Error("Укажите имя");
 
   const gender = parseGender(body.gender);
-  const birthYear = parseYear(body.birthYear);
-  const deathYear = parseYear(body.deathYear);
-  if (birthYear && deathYear && deathYear < birthYear) {
-    throw new Error("Год смерти не может быть раньше года рождения");
+  const birth = parseDateField(body, "birth", "рождения");
+  const death = parseDateField(body, "death", "смерти");
+  const order = compareDates(birth, death);
+  if (order !== null && order > 0) {
+    throw new Error("Дата смерти не может быть раньше даты рождения");
   }
 
   const claimedRaw = String(body.claimedClanId ?? "").trim();
@@ -356,8 +396,12 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
     firstName,
     patronymic,
     gender,
-    birthYear,
-    deathYear,
+    birthYear: birth.year,
+    birthMonth: birth.month,
+    birthDay: birth.day,
+    deathYear: death.year,
+    deathMonth: death.month,
+    deathDay: death.day,
     birthDateText: String(body.birthDateText ?? "").trim(),
     deathDateText: String(body.deathDateText ?? "").trim(),
     isLiving,
@@ -365,6 +409,38 @@ export function parsePersonInput(body: Record<string, unknown>): PersonInput {
     aliases: parseAliases(body.aliases),
     claimedClanId: claimedRaw || null,
   };
+}
+
+function optionalInt(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number.parseInt(String(value), 10);
+  if (!Number.isInteger(n)) throw new Error("Неверная дата");
+  return n;
+}
+
+/**
+ * Reads a date either from the form text (`birthDate`: "12.05.1952") or from
+ * already parsed parts (`birthYear`, `birthMonth`, `birthDay`).
+ */
+function parseDateField(
+  body: Record<string, unknown>,
+  prefix: "birth" | "death",
+  label: string,
+): PartialDate {
+  try {
+    const text = body[`${prefix}Date`];
+    if (typeof text === "string") return parseDateText(text);
+    const year = parseYear(body[`${prefix}Year`]);
+    if (year === null) return EMPTY_DATE;
+    return checkPartialDate({
+      year,
+      month: optionalInt(body[`${prefix}Month`]),
+      day: optionalInt(body[`${prefix}Day`]),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Неверная дата";
+    throw new Error(`Дата ${label}: ${message}`);
+  }
 }
 
 export function parseAliases(value: unknown): string[] {

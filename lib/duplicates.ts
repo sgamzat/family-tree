@@ -48,6 +48,29 @@ function asHit(
   };
 }
 
+type DateParts = {
+  birthYear: number | null;
+  birthMonth: number | null;
+  birthDay: number | null;
+  deathYear: number | null;
+  deathMonth: number | null;
+  deathDay: number | null;
+};
+
+/** Keeps each date as one unit: the kept card's date if it has a year, else the dropped one's. */
+function pickDates(keep: DateParts, drop: DateParts) {
+  const birth = keep.birthYear !== null ? keep : drop;
+  const death = keep.deathYear !== null ? keep : drop;
+  return {
+    birthYear: birth.birthYear,
+    birthMonth: birth.birthMonth,
+    birthDay: birth.birthDay,
+    deathYear: death.deathYear,
+    deathMonth: death.deathMonth,
+    deathDay: death.deathDay,
+  };
+}
+
 export async function findDuplicatePairs(limit = 40): Promise<DuplicatePair[]> {
   const people = await prisma.person.findMany({
     include: {
@@ -77,7 +100,11 @@ export async function findDuplicatePairs(limit = 40): Promise<DuplicatePair[]> {
         patronymic: person.patronymic,
         gender: person.gender as PersonDTO["gender"],
         birthYear: person.birthYear,
+        birthMonth: person.birthMonth,
+        birthDay: person.birthDay,
         deathYear: person.deathYear,
+        deathMonth: person.deathMonth,
+        deathDay: person.deathDay,
         birthDateText: person.birthDateText,
         deathDateText: person.deathDateText,
         isLiving: person.isLiving,
@@ -276,8 +303,7 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
       data: {
         lastName: keep.lastName || drop.lastName,
         patronymic: keep.patronymic || drop.patronymic,
-        birthYear: keep.birthYear ?? drop.birthYear,
-        deathYear: keep.deathYear ?? drop.deathYear,
+        ...pickDates(keep, drop),
         birthDateText: keep.birthDateText || drop.birthDateText,
         deathDateText: keep.deathDateText || drop.deathDateText,
         isLiving: keep.isLiving ?? drop.isLiving,
@@ -319,7 +345,11 @@ export async function mergePeople(keepId: string, dropId: string): Promise<Perso
     patronymic: merged.patronymic,
     gender: merged.gender as PersonDTO["gender"],
     birthYear: merged.birthYear,
+    birthMonth: merged.birthMonth,
+    birthDay: merged.birthDay,
     deathYear: merged.deathYear,
+    deathMonth: merged.deathMonth,
+    deathDay: merged.deathDay,
     birthDateText: merged.birthDateText,
     deathDateText: merged.deathDateText,
     isLiving: merged.isLiving,

@@ -1,15 +1,16 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
-import type { Gender, PersonDTO } from "@/lib/names";
+import { DateField } from "@/components/date-field";
+import { birthDateLabel, deathDateLabel, type Gender, type PersonDTO } from "@/lib/names";
 
 export type PersonFormValue = {
   lastName: string;
   firstName: string;
   patronymic: string;
   gender: Gender;
-  birthYear: string;
-  deathYear: string;
+  birthDate: string;
+  deathDate: string;
   birthDateText: string;
   deathDateText: string;
   isLiving: "" | "true" | "false";
@@ -24,8 +25,8 @@ export function personToForm(person: PersonDTO): PersonFormValue {
     firstName: person.firstName,
     patronymic: person.patronymic,
     gender: person.gender,
-    birthYear: person.birthYear ? String(person.birthYear) : "",
-    deathYear: person.deathYear ? String(person.deathYear) : "",
+    birthDate: birthDateLabel(person),
+    deathDate: deathDateLabel(person),
     birthDateText: person.birthDateText,
     deathDateText: person.deathDateText,
     isLiving:
@@ -41,8 +42,8 @@ export const emptyPersonForm = (gender: Gender = "male"): PersonFormValue => ({
   firstName: "",
   patronymic: "",
   gender,
-  birthYear: "",
-  deathYear: "",
+  birthDate: "",
+  deathDate: "",
   birthDateText: "",
   deathDateText: "",
   isLiving: "",
@@ -121,27 +122,19 @@ export function PersonFields({ value, onChange, lockGender, extras }: Props) {
           </label>
         </div>
       </fieldset>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="grid gap-1">
-          <span className="text-sm text-[var(--muted)]">Год рождения</span>
-          <input
-            className="field"
-            inputMode="numeric"
-            value={value.birthYear}
-            onChange={(event) => patch({ birthYear: event.target.value })}
-            placeholder="1952"
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm text-[var(--muted)]">Год смерти</span>
-          <input
-            className="field"
-            inputMode="numeric"
-            value={value.deathYear}
-            onChange={(event) => patch({ deathYear: event.target.value })}
-            placeholder="если нет — пусто"
-          />
-        </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <DateField
+          label="Дата рождения"
+          value={value.birthDate}
+          onChange={(birthDate) => patch({ birthDate })}
+          placeholder="12.05.1952 или 1952"
+        />
+        <DateField
+          label="Дата смерти"
+          value={value.deathDate}
+          onChange={(deathDate) => patch({ deathDate })}
+          placeholder="если жив — пусто"
+        />
       </div>
       {extras}
     </div>

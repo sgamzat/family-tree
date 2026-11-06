@@ -38,11 +38,7 @@ export function CreatePersonForm() {
     setSaving(true);
     setError("");
     try {
-      const payload = parsePersonInput({
-        ...form,
-        birthYear: form.birthYear,
-        deathYear: form.deathYear,
-      });
+      const payload = parsePersonInput(form);
       const data = await api<{ person: PersonDTO }>("/api/people", {
         method: "POST",
         body: JSON.stringify(payload),
